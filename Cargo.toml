@@ -1,0 +1,10 @@
+[package]
+name = "async-rx"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+futures-channel = "0.3.26"
+futures-core = "0.3.26"
+im = "15.1.0"
+pin-project-lite = "0.2.9"
