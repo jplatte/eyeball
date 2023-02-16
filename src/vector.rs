@@ -165,6 +165,12 @@ where
     }
 }
 
+impl<T: Clone> Default for Vector<T> {
+    fn default() -> Self {
+        Self { values: Default::default(), senders: Default::default() }
+    }
+}
+
 // Note: No DerefMut because all mutating must go through inherent methods that notify subscribers
 impl<T: Clone> ops::Deref for Vector<T> {
     type Target = im::Vector<T>;
