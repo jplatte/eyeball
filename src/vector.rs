@@ -127,16 +127,16 @@ impl<T: Clone> Vector<T> {
     ///
     /// # Panics
     ///
-    /// Panics if `index > len - 1`.
+    /// Panics if `index >= len`.
     #[track_caller]
     pub fn remove(&mut self, index: usize) -> T {
         let len = self.values.len();
-        if len == 0 || index > len - 1 {
+        if index < len {
+            self.notify(|| VectorDiff::Remove { index });
+            self.values.remove(index)
+        } else {
             panic!("index out of bounds: the length is {len} but the index is {index}");
         }
-
-        self.notify(|| VectorDiff::Remove { index });
-        self.values.remove(index)
     }
 
     fn notify(&mut self, get_diff: impl Fn() -> VectorDiff<T>) {
