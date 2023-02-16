@@ -1,6 +1,3 @@
-#![warn(missing_debug_implementations, missing_docs)]
-#![allow(clippy::new_without_default)]
-
 use std::{
     fmt, ops,
     pin::Pin,
