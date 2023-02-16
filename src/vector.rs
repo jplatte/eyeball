@@ -98,7 +98,7 @@ impl<T: Clone> Vector<T> {
     #[track_caller]
     pub fn insert(&mut self, index: usize, value: T) {
         let len = self.values.len();
-        if index < len {
+        if index <= len {
             self.notify(|| VectorDiff::Insert { index, value: value.clone() });
             self.values.insert(index, value);
         } else {
