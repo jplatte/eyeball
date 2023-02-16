@@ -119,11 +119,11 @@ impl<T: Clone> Vector<T> {
     ///
     /// # Panics
     ///
-    /// Panics if `index > len - 1`.
+    /// Panics if `index > len`.
     #[track_caller]
     pub fn set(&mut self, index: usize, value: T) -> T {
         let len = self.values.len();
-        if index < len - 1 {
+        if index < len {
             self.notify(|| VectorDiff::Set { index, value: value.clone() });
             self.values.set(index, value)
         } else {
