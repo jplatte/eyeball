@@ -92,21 +92,13 @@ impl<T: Clone> Vector<T> {
 
     /// Insert an element at the given position and notify subscribers.
     ///
-    /// If the index is `0`, the notification will contain [`VectorDiff::PushFront`] instead of
-    /// [`VectorDiff::Insert`]. If it is equal to the amount of elements already in the list, the
-    /// notification will contain [`VectorDiff::PushBack`].
-    ///
     /// # Panics
     ///
     /// Panics if `index > len`.
     #[track_caller]
     pub fn insert(&mut self, index: usize, value: T) {
         let len = self.values.len();
-        if index == 0 {
-            self.push_front(value);
-        } else if index == len {
-            self.push_back(value);
-        } else if index < len {
+        if index < len {
             self.notify(|| VectorDiff::Insert { index, value: value.clone() });
             self.values.insert(index, value);
         } else {
@@ -133,10 +125,6 @@ impl<T: Clone> Vector<T> {
 
     /// Remove the element at the given position, notify subscribers and return the element.
     ///
-    /// If the index is `0`, the notification will contain [`VectorDiff::PopFront`] instead of
-    /// [`VectorDiff::Remove`]. If it is equal to `len - 1`, the notification will contain
-    /// [`VectorDiff::PopBack`].
-    ///
     /// # Panics
     ///
     /// Panics if `index > len - 1`.
@@ -147,14 +135,8 @@ impl<T: Clone> Vector<T> {
             panic!("index out of bounds: the length is {len} but the index is {index}");
         }
 
-        if index == 0 {
-            self.pop_front().unwrap()
-        } else if index == len - 1 {
-            self.pop_back().unwrap()
-        } else {
-            self.notify(|| VectorDiff::Remove { index });
-            self.values.remove(index)
-        }
+        self.notify(|| VectorDiff::Remove { index });
+        self.values.remove(index)
     }
 
     fn notify(&mut self, get_diff: impl Fn() -> VectorDiff<T>) {
