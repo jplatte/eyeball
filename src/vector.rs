@@ -181,6 +181,10 @@ impl<T: Clone> ops::Deref for Vector<T> {
 }
 
 pin_project! {
+    /// A subscriber for updated of a [`Vector`].
+    ///
+    /// Use its [`Stream`] implementation to interact with it (futures-util and other
+    /// futures-related crates have extension traits with convenience methods).
     pub struct VectorSubscriber<T: Clone> {
         #[pin]
         inner: mpsc::UnboundedReceiver<VectorDiff<T>>,
