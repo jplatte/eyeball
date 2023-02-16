@@ -133,17 +133,27 @@ impl<T: Clone> Vector<T> {
 
     /// Remove the element at the given position, notify subscribers and return the element.
     ///
+    /// If the index is `0`, the notification will contain [`VectorDiff::PopFront`] instead of
+    /// [`VectorDiff::Remove`]. If it is equal to `len - 1`, the notification will contain
+    /// [`VectorDiff::PopBack`].
+    ///
     /// # Panics
     ///
     /// Panics if `index > len - 1`.
     #[track_caller]
     pub fn remove(&mut self, index: usize) -> T {
         let len = self.values.len();
-        if index < len - 1 {
+        if len == 0 || index > len - 1 {
+            panic!("index out of bounds: the length is {len} but the index is {index}");
+        }
+
+        if index == 0 {
+            self.pop_front().unwrap()
+        } else if index == len - 1 {
+            self.pop_back().unwrap()
+        } else {
             self.notify(|| VectorDiff::Remove { index });
             self.values.remove(index)
-        } else {
-            panic!("index out of bounds: the length is {len} but the index is {index}");
         }
     }
 
