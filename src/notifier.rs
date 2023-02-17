@@ -22,3 +22,9 @@ impl<T> Notifier<T> {
         });
     }
 }
+
+impl<T> Default for Notifier<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}

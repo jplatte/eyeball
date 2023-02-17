@@ -11,7 +11,7 @@ use pin_project_lite::pin_project;
 use crate::notifier::Notifier;
 
 /// A value whose changes will be broadcast to subscribers.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Observable<T> {
     value: T,
     notifier: Notifier<T>,
