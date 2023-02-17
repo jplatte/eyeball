@@ -8,16 +8,18 @@ use futures_channel::mpsc;
 use futures_core::Stream;
 use pin_project_lite::pin_project;
 
+use crate::notifier::Notifier;
+
 /// An ordered list of elements that broadcasts any changes made to it.
 pub struct Vector<T: Clone> {
     values: im::Vector<T>,
-    senders: Vec<mpsc::UnboundedSender<VectorDiff<T>>>,
+    notifier: Notifier<VectorDiff<T>>,
 }
 
 impl<T: Clone> Vector<T> {
     /// Create a new `Vector`.
     pub fn new() -> Self {
-        Self { values: Default::default(), senders: Default::default() }
+        Self { values: im::Vector::new(), notifier: Notifier::new() }
     }
 
     /// Obtain a new subscriber.
@@ -28,7 +30,7 @@ impl<T: Clone> Vector<T> {
         if !self.values.is_empty() {
             tx.unbounded_send(VectorDiff::Append { values: self.values.clone() }).unwrap();
         }
-        self.senders.push(tx);
+        self.notifier.add_sender(tx);
 
         VectorSubscriber::new(rx)
     }
@@ -38,7 +40,7 @@ impl<T: Clone> Vector<T> {
     /// The subscriber will start receiving updates as further mutations are processed.
     pub fn get_subscribe(&mut self) -> (im::Vector<T>, VectorSubscriber<T>) {
         let (tx, rx) = mpsc::unbounded();
-        self.senders.push(tx);
+        self.notifier.add_sender(tx);
         (self.values.clone(), VectorSubscriber::new(rx))
     }
 
@@ -140,11 +142,7 @@ impl<T: Clone> Vector<T> {
     }
 
     fn notify(&mut self, get_diff: impl Fn() -> VectorDiff<T>) {
-        self.senders.retain_mut(move |sender| match sender.unbounded_send(get_diff()) {
-            Ok(_) => true,
-            Err(e) if e.is_disconnected() => false,
-            Err(e) => panic!("logic error: {e}"),
-        })
+        self.notifier.notify(get_diff);
     }
 }
 
@@ -159,7 +157,7 @@ where
 
 impl<T: Clone> Default for Vector<T> {
     fn default() -> Self {
-        Self { values: Default::default(), senders: Default::default() }
+        Self::new()
     }
 }
 
@@ -173,7 +171,7 @@ impl<T: Clone> ops::Deref for Vector<T> {
 }
 
 pin_project! {
-    /// A subscriber for updated of a [`Vector`].
+    /// A subscriber for updates of a [`Vector`].
     ///
     /// Use its [`Stream`] implementation to interact with it (futures-util and other
     /// futures-related crates have extension traits with convenience methods).
@@ -184,7 +182,7 @@ pin_project! {
 }
 
 impl<T: Clone> VectorSubscriber<T> {
-    fn new(inner: mpsc::UnboundedReceiver<VectorDiff<T>>) -> Self {
+    const fn new(inner: mpsc::UnboundedReceiver<VectorDiff<T>>) -> Self {
         Self { inner }
     }
 }
