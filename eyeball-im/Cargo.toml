@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 license = "MPL-2.0"
 description = "Observable collections based on the `im` crate."
+repository = "https://github.com/jplatte/eyeball"
 
 [dependencies]
 futures-core.workspace = true
