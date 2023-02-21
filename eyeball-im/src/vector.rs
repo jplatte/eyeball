@@ -75,7 +75,7 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
         self.broadcast_diff(VectorDiff::PushFront { value });
     }
 
-    /// Add an element at the front of the list and notify subscribers.
+    /// Add an element at the back of the list and notify subscribers.
     pub fn push_back(&mut self, value: T) {
         self.values.push_back(value.clone());
         self.broadcast_diff(VectorDiff::PushBack { value });
