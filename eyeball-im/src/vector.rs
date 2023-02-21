@@ -51,6 +51,11 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
     }
 
     /// Obtain a new subscriber.
+    ///
+    /// If you put the `ObservableVector` behind a lock, it is highly
+    /// recommended to make access of the elements and subscribing one
+    /// operation. Otherwise, the values could be altered in between the
+    /// reading of the values and subscribing to changes.
     pub fn subscribe(&self) -> VectorSubscriber<T> {
         let stream = BroadcastStream::new(self.sender.subscribe());
         VectorSubscriber::new(stream)
