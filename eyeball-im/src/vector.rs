@@ -51,9 +51,6 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
     }
 
     /// Obtain a new subscriber.
-    ///
-    /// If the inner list of elements is non-empty, it will immediately receive
-    /// an update.
     pub fn subscribe(&self) -> VectorSubscriber<T> {
         let stream = BroadcastStream::new(self.sender.subscribe());
         VectorSubscriber::new(stream)
