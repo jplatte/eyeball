@@ -1,4 +1,4 @@
-# eyeball
+# eyeball 👁️
 
 > eyeball (verb) - synonym for observe
 
