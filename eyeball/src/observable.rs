@@ -113,6 +113,12 @@ impl<T: Clone + Send + 'static> Observable<T> {
     }
 }
 
+impl<T: Clone + Default + Send + 'static> Default for Observable<T> {
+    fn default() -> Self {
+        Self::new(T::default())
+    }
+}
+
 // Note: No DerefMut because all mutating must go through inherent methods that
 // notify subscribers
 impl<T> ops::Deref for Observable<T> {
