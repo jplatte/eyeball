@@ -1,3 +1,7 @@
+# 0.1.4
+
+- Add `SharedObservable` convenience API
+
 # 0.1.3
 
 - Allow non-`Send` and / or non-`'static` values

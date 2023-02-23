@@ -10,7 +10,7 @@ use crate::{Observable, Subscriber};
 
 /// A common type of shared observable, where shared ownership is achieved via
 /// `Arc` in addition to shared mutation via `RwLock`.
-pub type SharedObservable<T> = SharedObservableBase<Arc<RwLock<T>>>;
+pub type SharedObservable<T> = SharedObservableBase<Arc<RwLock<Observable<T>>>>;
 
 /// A wrapper around a lock that contains an [`Observable`].
 ///
