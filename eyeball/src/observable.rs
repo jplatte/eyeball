@@ -6,6 +6,7 @@ use std::{
 };
 
 use futures_core::Stream;
+use readlock::{Shared, SharedReadLock};
 use tokio::sync::broadcast::{self, Sender};
 use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
 
@@ -17,21 +18,21 @@ use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
 /// functions (e.g. `Observable::subscribe(observable)`).
 #[derive(Debug)]
 pub struct Observable<T> {
-    value: T,
-    sender: Sender<T>,
+    value: Shared<T>,
+    sender: Sender<()>,
 }
 
-impl<T: Clone + Send + 'static> Observable<T> {
+impl<T> Observable<T> {
     /// Create a new `Observable` with the given initial value.
     pub fn new(value: T) -> Self {
         let (sender, _) = broadcast::channel(1);
-        Self { value, sender }
+        Self { value: Shared::new(value), sender }
     }
 
     /// Obtain a new subscriber.
     pub fn subscribe(this: &Self) -> Subscriber<T> {
         let rx = this.sender.subscribe();
-        Subscriber::new(BroadcastStream::new(rx))
+        Subscriber::new(Shared::get_read_lock(&this.value), BroadcastStream::new(rx))
     }
 
     /// Get a reference to the inner value.
@@ -52,7 +53,7 @@ impl<T: Clone + Send + 'static> Observable<T> {
     /// Set the inner value to the given `value`, notify subscribers and return
     /// the previous value.
     pub fn replace(this: &mut Self, value: T) -> T {
-        let result = mem::replace(&mut this.value, value);
+        let result = mem::replace(&mut *Shared::lock(&mut this.value), value);
         Self::broadcast_update(this);
         result
     }
@@ -64,7 +65,7 @@ impl<T: Clone + Send + 'static> Observable<T> {
     /// other update methods below if you want to conditionally mutate the
     /// inner value.
     pub fn update(this: &mut Self, f: impl FnOnce(&mut T)) {
-        f(&mut this.value);
+        f(&mut *Shared::lock(&mut this.value));
         Self::broadcast_update(this);
     }
 
@@ -72,11 +73,11 @@ impl<T: Clone + Send + 'static> Observable<T> {
     /// not equal the previous value.
     pub fn update_eq(this: &mut Self, f: impl FnOnce(&mut T))
     where
-        T: PartialEq,
+        T: Clone + PartialEq,
     {
         let prev = this.value.clone();
-        f(&mut this.value);
-        if this.value != prev {
+        f(&mut *Shared::lock(&mut this.value));
+        if *this.value != prev {
             Self::broadcast_update(this);
         }
     }
@@ -93,7 +94,7 @@ impl<T: Clone + Send + 'static> Observable<T> {
         this.value.hash(&mut hasher);
         let prev_hash = hasher.finish();
 
-        f(&mut this.value);
+        f(&mut *Shared::lock(&mut this.value));
 
         let mut hasher = DefaultHasher::new();
         this.value.hash(&mut hasher);
@@ -105,15 +106,15 @@ impl<T: Clone + Send + 'static> Observable<T> {
     }
 
     fn broadcast_update(this: &Self) {
-        if this.sender.receiver_count() != 0 {
-            let _num_receivers = this.sender.send(this.value.clone()).unwrap_or(0);
-            #[cfg(feature = "tracing")]
+        let _num_receivers = this.sender.send(()).unwrap_or(0);
+        #[cfg(feature = "tracing")]
+        if _num_receivers > 0 {
             tracing::debug!("New observable value broadcast to {_num_receivers} receivers");
         }
     }
 }
 
-impl<T: Clone + Default + Send + 'static> Default for Observable<T> {
+impl<T: Default> Default for Observable<T> {
     fn default() -> Self {
         Self::new(T::default())
     }
@@ -136,22 +137,23 @@ impl<T> ops::Deref for Observable<T> {
 /// methods).
 #[derive(Debug)]
 pub struct Subscriber<T> {
-    inner: BroadcastStream<T>,
+    read_lock: SharedReadLock<T>,
+    notification_stream: BroadcastStream<()>,
 }
 
 impl<T> Subscriber<T> {
-    fn new(inner: BroadcastStream<T>) -> Self {
-        Self { inner }
+    fn new(read_lock: SharedReadLock<T>, notification_stream: BroadcastStream<()>) -> Self {
+        Self { read_lock, notification_stream }
     }
 }
 
-impl<T: Clone + Send + 'static> Stream for Subscriber<T> {
+impl<T: Clone> Stream for Subscriber<T> {
     type Item = T;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
-            let poll = match Pin::new(&mut self.inner).poll_next(cx) {
-                Poll::Ready(Some(Ok(value))) => Poll::Ready(Some(value)),
+            let poll = match Pin::new(&mut self.notification_stream).poll_next(cx) {
+                Poll::Ready(Some(Ok(_))) => Poll::Ready(Some(self.read_lock.lock().clone())),
                 Poll::Ready(None) => Poll::Ready(None),
                 Poll::Ready(Some(Err(BroadcastStreamRecvError::Lagged(_)))) => continue,
                 Poll::Pending => Poll::Pending,
