@@ -82,6 +82,17 @@ impl<T> Observable<T> {
         result
     }
 
+    /// Set the inner value to a `Default` instance of its type, notify
+    /// subscribers and return the previous value.
+    ///
+    /// Shorthand for `Observable::replace(this, T::default())`.
+    pub fn take(this: &mut Self) -> T
+    where
+        T: Default,
+    {
+        Self::replace(this, T::default())
+    }
+
     /// Update the inner value and notify subscribers.
     ///
     /// Note that even if the inner value is not actually changed by the
