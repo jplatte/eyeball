@@ -47,7 +47,8 @@ impl<T> Observable<T> {
 
     /// Set the inner value to the given `value` and notify subscribers.
     pub fn set(this: &mut Self, value: T) {
-        Self::replace(this, value);
+        *Shared::lock(&mut this.value) = value;
+        Self::broadcast_update(this);
     }
 
     /// Set the inner value to the given `value`, notify subscribers and return
