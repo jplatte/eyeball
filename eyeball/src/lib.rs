@@ -7,5 +7,7 @@
 #![allow(clippy::new_without_default)]
 
 mod observable;
+mod shared_observable;
 
 pub use observable::{Observable, Subscriber};
+pub use shared_observable::{ObservableLock, SharedObservable, SharedObservableBase};
