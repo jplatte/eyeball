@@ -1,4 +1,4 @@
-# unreleased
+# 0.1.3
 
 - Allow non-`Send` and / or non-`'static` values
 
