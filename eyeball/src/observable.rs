@@ -51,6 +51,29 @@ impl<T> Observable<T> {
         Self::broadcast_update(this);
     }
 
+    /// Set the inner value to the given `value` and notify subscribers if the
+    /// updated value does not equal the previous value.
+    pub fn set_eq(this: &mut Self, value: T)
+    where
+        T: Clone + PartialEq,
+    {
+        Self::update_eq(this, |inner| {
+            *inner = value;
+        });
+    }
+
+    /// Set the inner value to the given `value` and notify subscribers if the
+    /// hash of the updated value does not equal the hash of the previous
+    /// value.
+    pub fn set_hash(this: &mut Self, value: T)
+    where
+        T: Hash,
+    {
+        Self::update_hash(this, |inner| {
+            *inner = value;
+        });
+    }
+
     /// Set the inner value to the given `value`, notify subscribers and return
     /// the previous value.
     pub fn replace(this: &mut Self, value: T) -> T {
