@@ -27,6 +27,14 @@ impl<T> Subscriber<T> {
         Self { read_lock, notification_stream }
     }
 
+    /// Get a clone of the inner value without waiting for an update.
+    pub fn get(&self) -> T
+    where
+        T: Clone,
+    {
+        self.read().clone()
+    }
+
     /// Lock the inner value for reading without waiting for an update.
     ///
     /// Note that as long as the returned [`SubscriberReadGuard`] is kept alive,
@@ -58,7 +66,7 @@ impl<T: Clone> Stream for Subscriber<T> {
     type Item = T;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.poll_notification_stream(cx).map(|ready| ready.map(|_| self.read_lock.lock().clone()))
+        self.poll_notification_stream(cx).map(|ready| ready.map(|_| self.get()))
     }
 }
 
