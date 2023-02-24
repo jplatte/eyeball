@@ -23,7 +23,7 @@ criterion = { version = "0.4.0", optional = true }
 tokio = { workspace = true, features = ["macros", "rt"] }
 
 [features]
-__bench = ["dep:criterion", "tokio/macros", "tokio/rt-multi-thread"]
+__bench = ["dep:criterion", "tokio/rt-multi-thread"]
 
 [[bench]]
 name = "set_a_lot"
