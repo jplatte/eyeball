@@ -38,6 +38,17 @@ impl<T> Subscriber<T> {
         Some(self.get())
     }
 
+    /// Wait for an update and get a read lock for the updated value.
+    ///
+    /// You can use this method to get updates of an
+    /// [`Observable`][crate::Observable] where the inner type does not
+    /// implement `Clone`. However, the `Observable` will be locked (not
+    /// updateable) while any read locks are alive.
+    pub async fn next_ref(&mut self) -> Option<SubscriberReadGuard<'_, T>> {
+        poll_fn(|cx| self.poll_notification_stream(cx)).await?;
+        Some(self.read())
+    }
+
     /// Get a clone of the inner value without waiting for an update.
     pub fn get(&self) -> T
     where
