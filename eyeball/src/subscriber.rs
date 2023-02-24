@@ -1,5 +1,7 @@
 use std::{
-    fmt, ops,
+    fmt,
+    future::poll_fn,
+    ops,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -9,10 +11,6 @@ use readlock::{SharedReadGuard, SharedReadLock};
 use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
 
 /// A subscriber for updates of an [`Observable`].
-///
-/// Use its [`Stream`] implementation to interact with it (futures-util and
-/// other futures-related crates have extension traits with convenience
-/// methods).
 #[derive(Debug)]
 pub struct Subscriber<T> {
     read_lock: SharedReadLock<T>,
@@ -25,6 +23,19 @@ impl<T> Subscriber<T> {
         notification_stream: BroadcastStream<()>,
     ) -> Self {
         Self { read_lock, notification_stream }
+    }
+
+    /// Wait for an update and get a clone of the updated value.
+    ///
+    /// This method is a convenience so you don't have to import a `Stream`
+    /// extension trait such as `futures::StreamExt` or
+    /// `tokio_stream::StreamExt`.
+    pub async fn next(&mut self) -> Option<T>
+    where
+        T: Clone,
+    {
+        poll_fn(|cx| self.poll_notification_stream(cx)).await?;
+        Some(self.get())
     }
 
     /// Get a clone of the inner value without waiting for an update.

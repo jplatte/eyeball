@@ -4,7 +4,6 @@ use criterion::{black_box, criterion_group, criterion_main, BatchSize, Bencher, 
 
 use eyeball::Observable;
 use tokio::task::JoinSet;
-use tokio_stream::StreamExt;
 
 fn baseline(b: &mut Bencher<'_>) {
     let mut x = Box::new([0; 256]);

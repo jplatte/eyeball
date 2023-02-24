@@ -1,5 +1,3 @@
-use tokio_stream::StreamExt as _;
-
 use eyeball::Observable;
 
 #[tokio::test]
