@@ -8,6 +8,8 @@
 
 mod observable;
 mod shared_observable;
+mod subscriber;
 
-pub use observable::{Observable, Subscriber};
+pub use observable::Observable;
 pub use shared_observable::{ObservableLock, SharedObservable, SharedObservableBase};
+pub use subscriber::Subscriber;
