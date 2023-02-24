@@ -1,3 +1,9 @@
+# 0.2.0
+
+- Add more documentation
+- Move `SharedObservableBase` and `ObservableLock` out of the crate root
+  - They are now accessible in `eyeball::shared`
+
 # 0.1.5
 
 - Add `Subscriber::{next, next_ref, get, read}`
