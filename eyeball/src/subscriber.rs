@@ -10,6 +10,9 @@ use futures_core::Stream;
 use readlock::{SharedReadGuard, SharedReadLock};
 use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
 
+#[cfg(doc)]
+use crate::observable::Observable;
+
 /// A subscriber for updates of an [`Observable`].
 #[derive(Debug)]
 pub struct Subscriber<T> {
@@ -40,10 +43,9 @@ impl<T> Subscriber<T> {
 
     /// Wait for an update and get a read lock for the updated value.
     ///
-    /// You can use this method to get updates of an
-    /// [`Observable`][crate::Observable] where the inner type does not
-    /// implement `Clone`. However, the `Observable` will be locked (not
-    /// updateable) while any read locks are alive.
+    /// You can use this method to get updates of an [`Observable`] where the
+    /// inner type does not implement `Clone`. However, the `Observable`
+    /// will be locked (not updateable) while any read locks are alive.
     pub async fn next_ref(&mut self) -> Option<SubscriberReadGuard<'_, T>> {
         poll_fn(|cx| self.poll_notification_stream(cx)).await?;
         Some(self.read())
@@ -60,8 +62,7 @@ impl<T> Subscriber<T> {
     /// Lock the inner value for reading without waiting for an update.
     ///
     /// Note that as long as the returned [`SubscriberReadGuard`] is kept alive,
-    /// the associated [`Observable`][crate::Observable] is locked and can not
-    /// be updated.
+    /// the associated [`Observable`] is locked and can not be updated.
     pub fn read(&self) -> SubscriberReadGuard<'_, T> {
         SubscriberReadGuard::new(self.read_lock.lock())
     }
@@ -96,7 +97,7 @@ impl<T: Clone> Stream for Subscriber<T> {
 /// without cloning.
 ///
 /// Note that as long as a SubscriberReadGuard is kept alive, the associated
-/// [`Observable`][crate::Observable] is locked and can not be updated.
+/// [`Observable`] is locked and can not be updated.
 pub struct SubscriberReadGuard<'a, T> {
     inner: SharedReadGuard<'a, T>,
 }
