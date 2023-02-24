@@ -25,15 +25,15 @@ impl<T> Subscriber<T> {
     ) -> Self {
         Self { read_lock, notification_stream }
     }
-}
 
-impl<T: Clone> Stream for Subscriber<T> {
-    type Item = T;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    /// Poll the inner notification stream.
+    ///
+    /// Returns `Ready(Some(()))` if there was a notification.
+    /// Returns `Ready(None)` if the notification stream was closed.
+    fn poll_notification_stream(&mut self, cx: &mut Context<'_>) -> Poll<Option<()>> {
         loop {
             let poll = match Pin::new(&mut self.notification_stream).poll_next(cx) {
-                Poll::Ready(Some(Ok(_))) => Poll::Ready(Some(self.read_lock.lock().clone())),
+                Poll::Ready(Some(Ok(_))) => Poll::Ready(Some(())),
                 Poll::Ready(None) => Poll::Ready(None),
                 Poll::Ready(Some(Err(BroadcastStreamRecvError::Lagged(_)))) => continue,
                 Poll::Pending => Poll::Pending,
@@ -41,5 +41,13 @@ impl<T: Clone> Stream for Subscriber<T> {
 
             return poll;
         }
+    }
+}
+
+impl<T: Clone> Stream for Subscriber<T> {
+    type Item = T;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        self.poll_notification_stream(cx).map(|ready| ready.map(|_| self.read_lock.lock().clone()))
     }
 }
