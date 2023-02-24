@@ -12,4 +12,4 @@ mod subscriber;
 
 pub use observable::Observable;
 pub use shared_observable::{ObservableLock, SharedObservable, SharedObservableBase};
-pub use subscriber::Subscriber;
+pub use subscriber::{Subscriber, SubscriberReadGuard};

@@ -1,10 +1,11 @@
 use std::{
+    fmt, ops,
     pin::Pin,
     task::{Context, Poll},
 };
 
 use futures_core::Stream;
-use readlock::SharedReadLock;
+use readlock::{SharedReadGuard, SharedReadLock};
 use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
 
 /// A subscriber for updates of an [`Observable`].
@@ -24,6 +25,15 @@ impl<T> Subscriber<T> {
         notification_stream: BroadcastStream<()>,
     ) -> Self {
         Self { read_lock, notification_stream }
+    }
+
+    /// Lock the inner value for reading without waiting for an update.
+    ///
+    /// Note that as long as the returned [`SubscriberReadGuard`] is kept alive,
+    /// the associated [`Observable`][crate::Observable] is locked and can not
+    /// be updated.
+    pub fn read(&self) -> SubscriberReadGuard<'_, T> {
+        SubscriberReadGuard::new(self.read_lock.lock())
     }
 
     /// Poll the inner notification stream.
@@ -49,5 +59,34 @@ impl<T: Clone> Stream for Subscriber<T> {
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.poll_notification_stream(cx).map(|ready| ready.map(|_| self.read_lock.lock().clone()))
+    }
+}
+
+/// A read guard that allows you to read the inner value of an observable
+/// without cloning.
+///
+/// Note that as long as a SubscriberReadGuard is kept alive, the associated
+/// [`Observable`][crate::Observable] is locked and can not be updated.
+pub struct SubscriberReadGuard<'a, T> {
+    inner: SharedReadGuard<'a, T>,
+}
+
+impl<'a, T> SubscriberReadGuard<'a, T> {
+    fn new(inner: SharedReadGuard<'a, T>) -> Self {
+        Self { inner }
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for SubscriberReadGuard<'_, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.inner.fmt(f)
+    }
+}
+
+impl<T> ops::Deref for SubscriberReadGuard<'_, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
     }
 }
