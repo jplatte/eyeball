@@ -54,9 +54,9 @@ assert_eq!(subscriber1.get(), "D");
 assert_eq!(*subscriber2.read(), "D");
 ```
 
-There is also the type `SharedObservable<T>` as a wrapper around a
-reference-counted `Observable<T>` that can be modified from different places
-using locking.
+There is also the type `SharedObservable<T>` as a wrapper around 
+`Arc<RwLock<Observable<T>>>` that is a little more convenient to use than that
+type.
 
 For more details, see the documentation [on docs.rs][docs.rs].
 

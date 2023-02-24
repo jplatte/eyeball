@@ -1,3 +1,5 @@
+//! Helpers for making [`Observable`]s behind locks easier to use.
+
 use std::{
     cell::{Ref, RefCell, RefMut},
     hash::Hash,
@@ -8,10 +10,6 @@ use std::{
 
 use crate::{Observable, Subscriber};
 
-/// A common type of shared observable, where shared ownership is achieved via
-/// `Arc` in addition to shared mutation via `RwLock`.
-pub type SharedObservable<T> = SharedObservableBase<Arc<RwLock<Observable<T>>>>;
-
 /// A wrapper around a lock that contains an [`Observable`].
 ///
 /// You can use this type to remove some of the boilerplate of obtaining locks
@@ -21,7 +19,7 @@ pub type SharedObservable<T> = SharedObservableBase<Arc<RwLock<Observable<T>>>>;
 /// Here are some examples for possible types to use as `I` (where `_` is always
 /// `Observable<T>` for an arbitrary `T`):
 ///
-/// - `Arc<RwLock<_>>` ([`SharedObservable`])
+/// - `Arc<RwLock<_>>` ([`SharedObservable`][crate::SharedObservable])
 /// - `Arc<Mutex<_>>`
 /// - just `RwLock<_>` or `Mutex<_>`
 /// - `Rc<RefCell<_>>` or just `RefCell<_>` if you only want to write from a
@@ -31,7 +29,7 @@ pub type SharedObservable<T> = SharedObservableBase<Arc<RwLock<Observable<T>>>>;
 /// It is recommended to create a type alias to the kind of shared observable
 /// you want, if it is something other than `Arc<RwLock<_>>`.
 #[derive(Clone, Debug)]
-pub struct SharedObservableBase<I>(pub I);
+pub struct SharedObservableBase<L>(pub L);
 
 impl<T, L> SharedObservableBase<L>
 where

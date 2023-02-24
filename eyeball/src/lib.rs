@@ -70,9 +70,15 @@
 #![allow(clippy::new_without_default)]
 
 mod observable;
-mod shared_observable;
+pub mod shared;
 mod subscriber;
 
+use std::sync::{Arc, RwLock};
+
 pub use observable::Observable;
-pub use shared_observable::{ObservableLock, SharedObservable, SharedObservableBase};
+use shared::SharedObservableBase;
 pub use subscriber::{Subscriber, SubscriberReadGuard};
+
+/// A common type of shared observable, where shared ownership is achieved via
+/// `Arc` in addition to shared mutation via `RwLock`.
+pub type SharedObservable<T> = SharedObservableBase<Arc<RwLock<Observable<T>>>>;
