@@ -21,6 +21,20 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test
 
+  docs:
+    name: Check documentation (Rust stable)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo doc --all-features
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+
   test-miri:
     name: Run tests with miri (Rust nightly)
     runs-on: ubuntu-latest
