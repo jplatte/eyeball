@@ -1,3 +1,7 @@
+# 0.1.5
+
+- Add `Subscriber::{next, next_ref, get, read}`
+
 # 0.1.4
 
 - Add `SharedObservable` convenience API
