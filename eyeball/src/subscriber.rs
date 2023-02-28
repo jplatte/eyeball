@@ -1,6 +1,11 @@
+//! Details of observable [`Subscriber`]s.
+//!
+//! Usually, you don't need to interact with this module at all, since its most
+//! important types are re-exported at the crate root.
+
 use std::{
     fmt,
-    future::poll_fn,
+    future::{poll_fn, Future},
     ops,
     pin::Pin,
     task::{Context, Poll},
@@ -8,24 +13,21 @@ use std::{
 
 use futures_core::Stream;
 use readlock::{SharedReadGuard, SharedReadLock};
-use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
 
 #[cfg(doc)]
 use crate::observable::Observable;
+use crate::state::ObservableState;
 
 /// A subscriber for updates of an [`Observable`].
 #[derive(Debug)]
 pub struct Subscriber<T> {
-    read_lock: SharedReadLock<T>,
-    notification_stream: BroadcastStream<()>,
+    state: SharedReadLock<ObservableState<T>>,
+    observed_version: u64,
 }
 
 impl<T> Subscriber<T> {
-    pub(crate) fn new(
-        read_lock: SharedReadLock<T>,
-        notification_stream: BroadcastStream<()>,
-    ) -> Self {
-        Self { read_lock, notification_stream }
+    pub(crate) fn new(read_lock: SharedReadLock<ObservableState<T>>, version: u64) -> Self {
+        Self { state: read_lock, observed_version: version }
     }
 
     /// Wait for an update and get a clone of the updated value.
@@ -33,12 +35,41 @@ impl<T> Subscriber<T> {
     /// This method is a convenience so you don't have to import a `Stream`
     /// extension trait such as `futures::StreamExt` or
     /// `tokio_stream::StreamExt`.
-    pub async fn next(&mut self) -> Option<T>
+    #[allow(clippy::should_implement_trait)]
+    pub fn next(&mut self) -> Next<T>
     where
         T: Clone,
     {
-        poll_fn(|cx| self.poll_notification_stream(cx)).await?;
-        Some(self.get())
+        Next::new(self)
+    }
+
+    /// Get a clone of the inner value without waiting for an update.
+    ///
+    /// If the returned value has not been observed by this subscriber before,
+    /// it is marked as observed such that a subsequent call of
+    /// [`next`][Self::next] or [`next_ref`][Self::next_ref] won't return the
+    /// same value again. See [`get`][Self::get] for a function that doesn't
+    /// mark the value as observed.
+    pub fn next_now(&mut self) -> T
+    where
+        T: Clone,
+    {
+        let lock = self.state.lock();
+        self.observed_version = lock.version();
+        lock.get().clone()
+    }
+
+    /// Get a clone of the inner value without waiting for an update.
+    ///
+    /// If the returned value has not been observed by this subscriber before,
+    /// it is **not** marked as observed such that a subsequent call of
+    /// [`next`][Self::next] or [`next_ref`][Self::next_ref] will return the
+    /// same value again.
+    pub fn get(&self) -> T
+    where
+        T: Clone,
+    {
+        self.read().clone()
     }
 
     /// Wait for an update and get a read lock for the updated value.
@@ -47,40 +78,51 @@ impl<T> Subscriber<T> {
     /// inner type does not implement `Clone`. However, the `Observable`
     /// will be locked (not updateable) while any read locks are alive.
     pub async fn next_ref(&mut self) -> Option<SubscriberReadGuard<'_, T>> {
-        poll_fn(|cx| self.poll_notification_stream(cx)).await?;
-        Some(self.read())
-    }
-
-    /// Get a clone of the inner value without waiting for an update.
-    pub fn get(&self) -> T
-    where
-        T: Clone,
-    {
-        self.read().clone()
+        // Unclear how to implement this as a named future.
+        poll_fn(|cx| self.poll_next_ref(cx).map(|opt| opt.map(|_| {}))).await?;
+        Some(self.next_ref_now())
     }
 
     /// Lock the inner value for reading without waiting for an update.
     ///
     /// Note that as long as the returned [`SubscriberReadGuard`] is kept alive,
     /// the associated [`Observable`] is locked and can not be updated.
-    pub fn read(&self) -> SubscriberReadGuard<'_, T> {
-        SubscriberReadGuard::new(self.read_lock.lock())
+    ///
+    /// If the returned value has not been observed by this subscriber before,
+    /// it is marked as observed such that a subsequent call of
+    /// [`next`][Self::next] or [`next_ref`][Self::next_ref] won't return the
+    /// same value again. See [`get`][Self::get] for a function that doesn't
+    /// mark the value as observed.
+    pub fn next_ref_now(&mut self) -> SubscriberReadGuard<'_, T> {
+        let lock = self.state.lock();
+        self.observed_version = lock.version();
+        SubscriberReadGuard::new(lock)
     }
 
-    /// Poll the inner notification stream.
+    /// Lock the inner value for reading without waiting for an update.
     ///
-    /// Returns `Ready(Some(()))` if there was a notification.
-    /// Returns `Ready(None)` if the notification stream was closed.
-    fn poll_notification_stream(&mut self, cx: &mut Context<'_>) -> Poll<Option<()>> {
-        loop {
-            let poll = match Pin::new(&mut self.notification_stream).poll_next(cx) {
-                Poll::Ready(Some(Ok(_))) => Poll::Ready(Some(())),
-                Poll::Ready(None) => Poll::Ready(None),
-                Poll::Ready(Some(Err(BroadcastStreamRecvError::Lagged(_)))) => continue,
-                Poll::Pending => Poll::Pending,
-            };
+    /// Note that as long as the returned [`SubscriberReadGuard`] is kept alive,
+    /// the associated [`Observable`] is locked and can not be updated.
+    ///
+    /// If the returned value has not been observed by this subscriber before,
+    /// it is **not** marked as observed such that a subsequent call of
+    /// [`next`][Self::next] or [`next_ref`][Self::next_ref] will return the
+    /// same value again.
+    pub fn read(&self) -> SubscriberReadGuard<'_, T> {
+        SubscriberReadGuard::new(self.state.lock())
+    }
 
-            return poll;
+    fn poll_next_ref(&mut self, cx: &mut Context<'_>) -> Poll<Option<SubscriberReadGuard<'_, T>>> {
+        let state = self.state.lock();
+        let version = state.version();
+        if version == 0 {
+            Poll::Ready(None)
+        } else if self.observed_version < version {
+            self.observed_version = version;
+            Poll::Ready(Some(SubscriberReadGuard::new(state)))
+        } else {
+            state.add_waker(cx.waker().clone());
+            Poll::Pending
         }
     }
 }
@@ -89,7 +131,7 @@ impl<T: Clone> Stream for Subscriber<T> {
     type Item = T;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.poll_notification_stream(cx).map(|ready| ready.map(|_| self.get()))
+        self.poll_next_ref(cx).map(opt_guard_to_owned)
     }
 }
 
@@ -100,11 +142,11 @@ impl<T: Clone> Stream for Subscriber<T> {
 /// [`Observable`] is locked and can not be updated.
 #[clippy::has_significant_drop]
 pub struct SubscriberReadGuard<'a, T> {
-    inner: SharedReadGuard<'a, T>,
+    inner: SharedReadGuard<'a, ObservableState<T>>,
 }
 
 impl<'a, T> SubscriberReadGuard<'a, T> {
-    fn new(inner: SharedReadGuard<'a, T>) -> Self {
+    fn new(inner: SharedReadGuard<'a, ObservableState<T>>) -> Self {
         Self { inner }
     }
 }
@@ -119,6 +161,30 @@ impl<T> ops::Deref for SubscriberReadGuard<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        &self.inner
+        self.inner.get()
     }
+}
+
+/// Future returned by [`Subscriber::next`].
+#[derive(Debug)]
+pub struct Next<'a, T> {
+    subscriber: &'a mut Subscriber<T>,
+}
+
+impl<'a, T> Next<'a, T> {
+    fn new(subscriber: &'a mut Subscriber<T>) -> Self {
+        Self { subscriber }
+    }
+}
+
+impl<'a, T: Clone> Future for Next<'a, T> {
+    type Output = Option<T>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        self.subscriber.poll_next_ref(cx).map(opt_guard_to_owned)
+    }
+}
+
+fn opt_guard_to_owned<T: Clone>(value: Option<SubscriberReadGuard<'_, T>>) -> Option<T> {
+    value.map(|guard| guard.to_owned())
 }

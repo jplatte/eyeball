@@ -1,13 +1,8 @@
-use std::{
-    hash::{Hash, Hasher},
-    mem, ops,
-};
+use std::{hash::Hash, ops};
 
 use readlock::Shared;
-use tokio::sync::broadcast::{self, Sender};
-use tokio_stream::wrappers::BroadcastStream;
 
-use crate::subscriber::Subscriber;
+use crate::{state::ObservableState, subscriber::Subscriber};
 
 /// A value whose changes will be broadcast to subscribers.
 ///
@@ -17,21 +12,18 @@ use crate::subscriber::Subscriber;
 /// functions (e.g. `Observable::subscribe(observable)`).
 #[derive(Debug)]
 pub struct Observable<T> {
-    value: Shared<T>,
-    sender: Sender<()>,
+    state: Shared<ObservableState<T>>,
 }
 
 impl<T> Observable<T> {
     /// Create a new `Observable` with the given initial value.
     pub fn new(value: T) -> Self {
-        let (sender, _) = broadcast::channel(1);
-        Self { value: Shared::new(value), sender }
+        Self { state: Shared::new(ObservableState::new(value)) }
     }
 
     /// Obtain a new subscriber.
     pub fn subscribe(this: &Self) -> Subscriber<T> {
-        let rx = this.sender.subscribe();
-        Subscriber::new(Shared::get_read_lock(&this.value), BroadcastStream::new(rx))
+        Subscriber::new(Shared::get_read_lock(&this.state), this.state.version())
     }
 
     /// Get a reference to the inner value.
@@ -41,13 +33,12 @@ impl<T> Observable<T> {
     /// generic function where the compiler can't infer that you want to have
     /// the `Observable` dereferenced otherwise.
     pub fn get(this: &Self) -> &T {
-        &this.value
+        this.state.get()
     }
 
     /// Set the inner value to the given `value` and notify subscribers.
     pub fn set(this: &mut Self, value: T) {
-        *Shared::lock(&mut this.value) = value;
-        Self::broadcast_update(this);
+        Shared::lock(&mut this.state).set(value);
     }
 
     /// Set the inner value to the given `value` and notify subscribers if the
@@ -76,9 +67,7 @@ impl<T> Observable<T> {
     /// Set the inner value to the given `value`, notify subscribers and return
     /// the previous value.
     pub fn replace(this: &mut Self, value: T) -> T {
-        let result = mem::replace(&mut *Shared::lock(&mut this.value), value);
-        Self::broadcast_update(this);
-        result
+        Shared::lock(&mut this.state).replace(value)
     }
 
     /// Set the inner value to a `Default` instance of its type, notify
@@ -99,8 +88,7 @@ impl<T> Observable<T> {
     /// other update methods below if you want to conditionally mutate the
     /// inner value.
     pub fn update(this: &mut Self, f: impl FnOnce(&mut T)) {
-        f(&mut *Shared::lock(&mut this.value));
-        Self::broadcast_update(this);
+        Shared::lock(&mut this.state).update(f);
     }
 
     /// Update the inner value and notify subscribers if the updated value does
@@ -109,11 +97,7 @@ impl<T> Observable<T> {
     where
         T: Clone + PartialEq,
     {
-        let prev = this.value.clone();
-        f(&mut *Shared::lock(&mut this.value));
-        if *this.value != prev {
-            Self::broadcast_update(this);
-        }
+        Shared::lock(&mut this.state).update_eq(f);
     }
 
     /// Update the inner value and notify subscribers if the hash of the updated
@@ -122,29 +106,7 @@ impl<T> Observable<T> {
     where
         T: Hash,
     {
-        use std::collections::hash_map::DefaultHasher;
-
-        let mut hasher = DefaultHasher::new();
-        this.value.hash(&mut hasher);
-        let prev_hash = hasher.finish();
-
-        f(&mut *Shared::lock(&mut this.value));
-
-        let mut hasher = DefaultHasher::new();
-        this.value.hash(&mut hasher);
-        let new_hash = hasher.finish();
-
-        if prev_hash != new_hash {
-            Self::broadcast_update(this);
-        }
-    }
-
-    fn broadcast_update(this: &Self) {
-        let _num_receivers = this.sender.send(()).unwrap_or(0);
-        #[cfg(feature = "tracing")]
-        if _num_receivers > 0 {
-            tracing::debug!("New observable value broadcast to {_num_receivers} receivers");
-        }
+        Shared::lock(&mut this.state).update_hash(f);
     }
 }
 
@@ -160,6 +122,12 @@ impl<T> ops::Deref for Observable<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        &self.value
+        self.state.get()
+    }
+}
+
+impl<T> Drop for Observable<T> {
+    fn drop(&mut self) {
+        Shared::lock(&mut self.state).close();
     }
 }

@@ -71,12 +71,14 @@
 
 mod observable;
 pub mod shared;
-mod subscriber;
+mod state;
+pub mod subscriber;
 
 use std::sync::{Arc, RwLock};
 
 pub use observable::Observable;
 use shared::SharedObservableBase;
+#[doc(inline)]
 pub use subscriber::{Subscriber, SubscriberReadGuard};
 
 /// A common type of shared observable, where shared ownership is achieved via
