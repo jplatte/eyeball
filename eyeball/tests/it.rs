@@ -15,6 +15,29 @@ async fn lag() {
 }
 
 #[tokio::test]
+async fn separate_tasks() {
+    let mut ob = Observable::new(Box::new([0; 256]));
+
+    let mut subscriber = Observable::subscribe(&ob);
+    let handle = tokio::spawn(async move {
+        let mut value = subscriber.next().await.unwrap();
+        while let Some(update) = subscriber.next().await {
+            value = update;
+        }
+        assert_eq!(value, Box::new([32; 256]));
+        assert_eq!(subscriber.next().await, None);
+    });
+
+    for i in 1..=32 {
+        Observable::set(&mut ob, Box::new([i; 256]));
+        tokio::task::yield_now().await;
+    }
+    drop(ob);
+
+    handle.await.unwrap();
+}
+
+#[tokio::test]
 async fn lag_no_clone() {
     // no Clone impl
     struct Foo(String);
