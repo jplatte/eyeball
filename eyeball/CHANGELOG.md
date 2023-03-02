@@ -2,6 +2,11 @@
 
 - Add `#[clippy::has_significant_drop]` attribute to `SubscriberReadLock` so the
   [`clippy::significant_drop_in_scrutinee`] lint works with it
+- Rewrite the waking implementation to not rely on `tokio`'s broadcast channel.
+  This improves compile time if you're not using tokio otherwise, and improves
+  performance when there's a small number of subscribers. Expect performance for
+  more than 4 subscribers to potentially regress, especially if it's many more.
+  This case might be optimized in the future.
 
 [`clippy::significant_drop_in_scrutinee`]: https://rust-lang.github.io/rust-clippy/master/index.html#significant_drop_in_scrutinee
 
