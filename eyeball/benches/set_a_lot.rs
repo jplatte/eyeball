@@ -8,7 +8,7 @@ use tokio::task::JoinSet;
 fn baseline(b: &mut Bencher<'_>) {
     let mut x = Box::new([0; 256]);
     b.iter(|| {
-        for i in 1..=32 {
+        for i in 1..=256 {
             black_box(&x);
             x = black_box(Box::new([i; 256]));
         }
@@ -18,7 +18,7 @@ fn baseline(b: &mut Bencher<'_>) {
 fn no_subscribers(b: &mut Bencher<'_>) {
     let mut ob = Observable::new(Box::new([0; 256]));
     b.iter(|| {
-        for i in 1..=32 {
+        for i in 1..=256 {
             black_box(&*ob);
             Observable::set(&mut ob, black_box(Box::new([i; 256])));
         }
@@ -44,7 +44,7 @@ async fn n_subscribers(n: usize, b: &mut Bencher<'_>) {
             (ob, join_set)
         },
         |(mut ob, mut join_set)| {
-            for i in 1..=32 {
+            for i in 1..=256 {
                 Observable::set(&mut ob, black_box(Box::new([i; 256])));
             }
             drop(ob);
@@ -67,6 +67,7 @@ fn set_a_lot(c: &mut Criterion) {
     c.bench_function("two_subscribers", |b| n_subscribers(2, b));
     c.bench_function("four_subscribers", |b| n_subscribers(4, b));
     c.bench_function("sixteen_subscribers", |b| n_subscribers(16, b));
+    c.bench_function("sixtyfour_subscribers", |b| n_subscribers(64, b));
 }
 
 criterion_group!(benches, set_a_lot);
