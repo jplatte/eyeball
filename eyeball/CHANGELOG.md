@@ -1,3 +1,10 @@
+# unreleased
+
+- Add `#[clippy::has_significant_drop]` attribute to `SubscriberReadLock` so the
+  [`clippy::significant_drop_in_scrutinee`] lint works with it
+
+[`clippy::significant_drop_in_scrutinee`]: https://rust-lang.github.io/rust-clippy/master/index.html#significant_drop_in_scrutinee
+
 # 0.2.0
 
 - Add more documentation

@@ -98,6 +98,7 @@ impl<T: Clone> Stream for Subscriber<T> {
 ///
 /// Note that as long as a SubscriberReadGuard is kept alive, the associated
 /// [`Observable`] is locked and can not be updated.
+#[clippy::has_significant_drop]
 pub struct SubscriberReadGuard<'a, T> {
     inner: SharedReadGuard<'a, T>,
 }
