@@ -2,7 +2,7 @@ use std::sync::atomic::AtomicBool;
 
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Bencher, Criterion};
 
-use eyeball::Observable;
+use eyeball::unique::Observable;
 use tokio::task::JoinSet;
 
 fn baseline(b: &mut Bencher<'_>) {

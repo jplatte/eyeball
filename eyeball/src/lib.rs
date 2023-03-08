@@ -1,15 +1,21 @@
 //! Add observability to your Rust types!
 //!
 //! This crate implements a basic form of the [Observer pattern][] for Rust.
-//! It provides [`Observable<T>`] as a type that uniquely owns an inner value
-//! `T` and broadcasts changes to any associated [`Subscriber<T>`]s.
-//! `Subscriber`s can currently only be polled for updates using `async` /
-//! `.await`, but this may change in the future.
+//! It provides [`unique::Observable<T>`] as a type that semi-transparently
+//! wraps an inner value `T` and broadcasts changes to any associated
+//! [`Subscriber<T>`][unique::Subscriber]s. `Subscriber`s can currently only be
+//! polled for updates using `async` / `.await`, but this may change in the
+//! future.
+//!
+//! There is also [`shared::Observable<T>`] as another variation which
+//! implements [`Clone`] but not [`Deref`][std::ops::Deref]. It is more
+//! ergonomic and efficient than putting a `unique::Observable` inside of
+//! `Arc<RwLock<_>>` for updating the value from multiple places in the code.
 //!
 //! Here is a quick walk-through:
 //!
 //! ```
-//! use eyeball::Observable;
+//! use eyeball::unique::Observable;
 //!
 //! # #[tokio::main(flavor = "current_thread")]
 //! # async fn main() {
@@ -69,18 +75,6 @@
 #![warn(missing_debug_implementations, missing_docs)]
 #![allow(clippy::new_without_default)]
 
-mod observable;
 pub mod shared;
 mod state;
-pub mod subscriber;
-
-use std::sync::{Arc, RwLock};
-
-pub use observable::Observable;
-use shared::SharedObservableBase;
-#[doc(inline)]
-pub use subscriber::{Subscriber, SubscriberReadGuard};
-
-/// A common type of shared observable, where shared ownership is achieved via
-/// `Arc` in addition to shared mutation via `RwLock`.
-pub type SharedObservable<T> = SharedObservableBase<Arc<RwLock<Observable<T>>>>;
+pub mod unique;

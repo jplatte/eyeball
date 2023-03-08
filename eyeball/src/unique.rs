@@ -1,9 +1,8 @@
-//! This module defines a shared [`Observable`] type that is clonable, requires
-//! only `&` access to update its inner value but doesn't dereference to the
-//! inner value.
+//! This module defines a unique [`Observable`] type that requires `&mut` access
+//! to update its inner value but can be dereferenced (immutably).
 //!
-//! Use this in situations where multiple locations in the code should be able
-//! to update the inner value.
+//! Use this in situations where only a single location in the code should be
+//! able to update the inner value.
 
 use std::{
     fmt,
@@ -11,205 +10,49 @@ use std::{
     hash::Hash,
     ops,
     pin::Pin,
-    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
     task::{Context, Poll},
 };
 
 use futures_core::Stream;
+use readlock::{Shared, SharedReadGuard, SharedReadLock};
 
 use crate::state::ObservableState;
 
 /// A value whose changes will be broadcast to subscribers.
 ///
-/// Unlike [`unique::Observable`](crate::unique::Observable), this `Observable`
-/// can be `Clone`d but does't dereference to `T`. Because of the latter, it has
-/// regular methods to access or modify the inner value.
+/// `Observable<T>` dereferences to `T`, and does not have methods of its own to
+/// not clash with methods of the inner type. Instead, to interact with the
+/// `Observable` itself rather than the inner value, use its associated
+/// functions (e.g. `Observable::subscribe(observable)`).
 #[derive(Debug)]
 pub struct Observable<T> {
-    state: Arc<RwLock<ObservableState<T>>>,
-    /// Ugly hack to track the amount of clones of this observable,
-    /// *excluding subscribers*.
-    _num_clones: Arc<()>,
+    state: Shared<ObservableState<T>>,
 }
 
 impl<T> Observable<T> {
     /// Create a new `Observable` with the given initial value.
     pub fn new(value: T) -> Self {
-        Self {
-            state: Arc::new(RwLock::new(ObservableState::new(value))),
-            _num_clones: Arc::new(()),
-        }
+        Self { state: Shared::new(ObservableState::new(value)) }
     }
 
     /// Obtain a new subscriber.
-    pub fn subscribe(&self) -> Subscriber<T> {
-        let version = self.state.read().unwrap().version();
-        Subscriber::new(Arc::clone(&self.state), version)
+    pub fn subscribe(this: &Self) -> Subscriber<T> {
+        Subscriber::new(Shared::get_read_lock(&this.state), this.state.version())
     }
 
-    /// Read the inner value.
+    /// Get a reference to the inner value.
     ///
-    /// While the returned read guard is alive, nobody can update the inner
-    /// value. If you want to update the value based on the previous value, do
-    /// **not** use this method because it can cause races with other clones of
-    /// the same `Observable`. Instead, call of of the `update_` methods, or
-    /// if that doesn't fit your use case, call [`write`][Self::write] and
-    /// update the value through the write guard it returns.
-    pub fn read(&self) -> ObservableReadGuard<'_, T> {
-        ObservableReadGuard::new(self.state.read().unwrap())
-    }
-
-    /// Get a write guard to the inner value.
-    ///
-    /// This can be used to set a new value based on the existing value. The
-    /// returned write guard dereferences (immutably) to the inner type, and has
-    /// associated functions to update it.
-    pub fn write(&self) -> ObservableWriteGuard<'_, T> {
-        ObservableWriteGuard::new(self.state.write().unwrap())
-    }
-
-    /// Set the inner value to the given `value` and notify subscribers.
-    pub fn set(&mut self, value: T) {
-        self.state.write().unwrap().set(value);
-    }
-
-    /// Set the inner value to the given `value` and notify subscribers if the
-    /// updated value does not equal the previous value.
-    pub fn set_eq(&mut self, value: T)
-    where
-        T: Clone + PartialEq,
-    {
-        Self::update_eq(self, |inner| {
-            *inner = value;
-        });
-    }
-
-    /// Set the inner value to the given `value` and notify subscribers if the
-    /// hash of the updated value does not equal the hash of the previous
-    /// value.
-    pub fn set_hash(&mut self, value: T)
-    where
-        T: Hash,
-    {
-        Self::update_hash(self, |inner| {
-            *inner = value;
-        });
-    }
-
-    /// Set the inner value to the given `value`, notify subscribers and return
-    /// the previous value.
-    pub fn replace(&mut self, value: T) -> T {
-        self.state.write().unwrap().replace(value)
-    }
-
-    /// Set the inner value to a `Default` instance of its type, notify
-    /// subscribers and return the previous value.
-    ///
-    /// Shorthand for `observable.replace(T::default())`.
-    pub fn take(&mut self) -> T
-    where
-        T: Default,
-    {
-        self.replace(T::default())
-    }
-
-    /// Update the inner value and notify subscribers.
-    ///
-    /// Note that even if the inner value is not actually changed by the
-    /// closure, subscribers will be notified as if it was. Use one of the
-    /// other update methods below if you want to conditionally mutate the
-    /// inner value.
-    pub fn update(&mut self, f: impl FnOnce(&mut T)) {
-        self.state.write().unwrap().update(f);
-    }
-
-    /// Update the inner value and notify subscribers if the updated value does
-    /// not equal the previous value.
-    pub fn update_eq(&mut self, f: impl FnOnce(&mut T))
-    where
-        T: Clone + PartialEq,
-    {
-        self.state.write().unwrap().update_eq(f);
-    }
-
-    /// Update the inner value and notify subscribers if the hash of the updated
-    /// value does not equal the hash of the previous value.
-    pub fn update_hash(&mut self, f: impl FnOnce(&mut T))
-    where
-        T: Hash,
-    {
-        self.state.write().unwrap().update_hash(f);
-    }
-}
-
-impl<T> Clone for Observable<T> {
-    fn clone(&self) -> Self {
-        Self { state: self.state.clone(), _num_clones: self._num_clones.clone() }
-    }
-}
-
-impl<T: Default> Default for Observable<T> {
-    fn default() -> Self {
-        Self::new(T::default())
-    }
-}
-
-impl<T> Drop for Observable<T> {
-    fn drop(&mut self) {
-        // Only close the state if there are no other clones of this
-        // `Observable`.
-        if Arc::strong_count(&self._num_clones) == 1 {
-            self.state.write().unwrap().close();
-        }
-    }
-}
-
-/// A read guard for the inner value of an observable.
-///
-/// Note that as long as a `ObservableReadGuard` is kept alive, the associated
-/// [`Observable`] is locked and can not be updated.
-#[clippy::has_significant_drop]
-pub struct ObservableReadGuard<'a, T> {
-    inner: RwLockReadGuard<'a, ObservableState<T>>,
-}
-
-impl<'a, T> ObservableReadGuard<'a, T> {
-    fn new(inner: RwLockReadGuard<'a, ObservableState<T>>) -> Self {
-        Self { inner }
-    }
-}
-
-impl<T: fmt::Debug> fmt::Debug for ObservableReadGuard<'_, T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.inner.fmt(f)
-    }
-}
-
-impl<T> ops::Deref for ObservableReadGuard<'_, T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        self.inner.get()
-    }
-}
-
-/// A write guard for the inner value of an observable.
-///
-/// Note that as long as a `ObservableReadGuard` is kept alive, the associated
-/// [`Observable`] is locked and can not be updated.
-#[clippy::has_significant_drop]
-pub struct ObservableWriteGuard<'a, T> {
-    inner: RwLockWriteGuard<'a, ObservableState<T>>,
-}
-
-impl<'a, T> ObservableWriteGuard<'a, T> {
-    fn new(inner: RwLockWriteGuard<'a, ObservableState<T>>) -> Self {
-        Self { inner }
+    /// Usually, you don't need to call this function since `Observable<T>`
+    /// implements `Deref`. Use this if you want to pass the inner value to a
+    /// generic function where the compiler can't infer that you want to have
+    /// the `Observable` dereferenced otherwise.
+    pub fn get(this: &Self) -> &T {
+        this.state.get()
     }
 
     /// Set the inner value to the given `value` and notify subscribers.
     pub fn set(this: &mut Self, value: T) {
-        this.inner.set(value);
+        Shared::lock(&mut this.state).set(value);
     }
 
     /// Set the inner value to the given `value` and notify subscribers if the
@@ -238,7 +81,7 @@ impl<'a, T> ObservableWriteGuard<'a, T> {
     /// Set the inner value to the given `value`, notify subscribers and return
     /// the previous value.
     pub fn replace(this: &mut Self, value: T) -> T {
-        this.inner.replace(value)
+        Shared::lock(&mut this.state).replace(value)
     }
 
     /// Set the inner value to a `Default` instance of its type, notify
@@ -259,7 +102,7 @@ impl<'a, T> ObservableWriteGuard<'a, T> {
     /// other update methods below if you want to conditionally mutate the
     /// inner value.
     pub fn update(this: &mut Self, f: impl FnOnce(&mut T)) {
-        this.inner.update(f);
+        Shared::lock(&mut this.state).update(f);
     }
 
     /// Update the inner value and notify subscribers if the updated value does
@@ -268,7 +111,7 @@ impl<'a, T> ObservableWriteGuard<'a, T> {
     where
         T: Clone + PartialEq,
     {
-        this.inner.update_eq(f);
+        Shared::lock(&mut this.state).update_eq(f);
     }
 
     /// Update the inner value and notify subscribers if the hash of the updated
@@ -277,33 +120,41 @@ impl<'a, T> ObservableWriteGuard<'a, T> {
     where
         T: Hash,
     {
-        this.inner.update_hash(f);
+        Shared::lock(&mut this.state).update_hash(f);
     }
 }
 
-impl<T: fmt::Debug> fmt::Debug for ObservableWriteGuard<'_, T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.inner.fmt(f)
+impl<T: Default> Default for Observable<T> {
+    fn default() -> Self {
+        Self::new(T::default())
     }
 }
 
-impl<T> ops::Deref for ObservableWriteGuard<'_, T> {
+// Note: No DerefMut because all mutating must go through inherent methods that
+// notify subscribers
+impl<T> ops::Deref for Observable<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        self.inner.get()
+        self.state.get()
+    }
+}
+
+impl<T> Drop for Observable<T> {
+    fn drop(&mut self) {
+        Shared::lock(&mut self.state).close();
     }
 }
 
 /// A subscriber for updates of an [`Observable`].
 #[derive(Debug)]
 pub struct Subscriber<T> {
-    state: Arc<RwLock<ObservableState<T>>>,
+    state: SharedReadLock<ObservableState<T>>,
     observed_version: u64,
 }
 
 impl<T> Subscriber<T> {
-    pub(crate) fn new(read_lock: Arc<RwLock<ObservableState<T>>>, version: u64) -> Self {
+    pub(crate) fn new(read_lock: SharedReadLock<ObservableState<T>>, version: u64) -> Self {
         Self { state: read_lock, observed_version: version }
     }
 
@@ -331,7 +182,7 @@ impl<T> Subscriber<T> {
     where
         T: Clone,
     {
-        let lock = self.state.read().unwrap();
+        let lock = self.state.lock();
         self.observed_version = lock.version();
         lock.get().clone()
     }
@@ -371,7 +222,7 @@ impl<T> Subscriber<T> {
     /// same value again. See [`get`][Self::get] for a function that doesn't
     /// mark the value as observed.
     pub fn next_ref_now(&mut self) -> ObservableReadGuard<'_, T> {
-        let lock = self.state.read().unwrap();
+        let lock = self.state.lock();
         self.observed_version = lock.version();
         ObservableReadGuard::new(lock)
     }
@@ -386,11 +237,11 @@ impl<T> Subscriber<T> {
     /// [`next`][Self::next] or [`next_ref`][Self::next_ref] will return the
     /// same value again.
     pub fn read(&self) -> ObservableReadGuard<'_, T> {
-        ObservableReadGuard::new(self.state.read().unwrap())
+        ObservableReadGuard::new(self.state.lock())
     }
 
     fn poll_next_ref(&mut self, cx: &mut Context<'_>) -> Poll<Option<ObservableReadGuard<'_, T>>> {
-        let state = self.state.read().unwrap();
+        let state = self.state.lock();
         let version = state.version();
         if version == 0 {
             Poll::Ready(None)
@@ -409,6 +260,36 @@ impl<T: Clone> Stream for Subscriber<T> {
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.poll_next_ref(cx).map(opt_guard_to_owned)
+    }
+}
+
+/// A read guard that allows you to read the inner value of an observable
+/// without cloning.
+///
+/// Note that as long as a `ObservableReadGuard` is kept alive, the associated
+/// [`Observable`] is locked and can not be updated.
+#[clippy::has_significant_drop]
+pub struct ObservableReadGuard<'a, T> {
+    inner: SharedReadGuard<'a, ObservableState<T>>,
+}
+
+impl<'a, T> ObservableReadGuard<'a, T> {
+    fn new(inner: SharedReadGuard<'a, ObservableState<T>>) -> Self {
+        Self { inner }
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for ObservableReadGuard<'_, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.inner.fmt(f)
+    }
+}
+
+impl<T> ops::Deref for ObservableReadGuard<'_, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner.get()
     }
 }
 

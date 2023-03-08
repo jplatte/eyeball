@@ -1,4 +1,4 @@
-use eyeball::Observable;
+use eyeball::unique::Observable;
 
 #[tokio::test]
 async fn lag() {

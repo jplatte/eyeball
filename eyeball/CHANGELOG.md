@@ -1,5 +1,10 @@
 # unreleased
 
+- Move the existing `Observable` into a module called `unique`, to contrast it
+  with the shared observable type
+- Remove `SharedObservable` (wrapper around an `Observable` with extra locking)
+- Add `shared::Observable`, which provides a similar API to the previous
+  `SharedObservable`, in a more efficient and more obvious way
 - Add `#[clippy::has_significant_drop]` attribute to `SubscriberReadLock` so the
   [`clippy::significant_drop_in_scrutinee`] lint works with it
 - Rewrite the waking implementation to not rely on `tokio`'s broadcast channel.
