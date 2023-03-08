@@ -63,10 +63,6 @@
 //! # }
 //! ```
 //!
-//! If you want to modify an observable from multiple places, have a look at the
-//! [`SharedObservable`] type, which makes working with an `Observable` behind
-//! an `Arc<RwLock<_>>` a little more convenient.
-//!
 //! Cargo features:
 //!
 //! - `tracing`: Emit [tracing] events when updates are sent out
