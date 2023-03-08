@@ -16,6 +16,7 @@ async fn lag() {
 }
 
 #[tokio::test]
+#[cfg_attr(miri, ignore)]
 async fn separate_tasks() {
     let ob = Observable::new(Box::new([0; 256]));
 
