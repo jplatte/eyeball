@@ -1,4 +1,4 @@
-# unreleased
+# 0.3.0
 
 - Move the existing `Observable` into a module called `unique`, to contrast it
   with the shared observable type
