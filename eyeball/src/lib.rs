@@ -65,12 +65,18 @@
 //!
 //! Cargo features:
 //!
+//! - `unique` (enabled by default): Enables the `unique` module. Compared to
+//!   the `shared` module, this requires one extra dependency so this feature is
+//!   provided as a way to trim the dependency tree in case you don't need
+//!   [`unique::Observable`].
 //! - `tracing`: Emit [tracing] events when updates are sent out
 //!
 //! [Observer pattern]: https://en.wikipedia.org/wiki/Observer_pattern
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![warn(missing_debug_implementations, missing_docs)]
 #![allow(clippy::new_without_default)]
 
 pub mod shared;
 mod state;
+#[cfg(feature = "unique")]
 pub mod unique;
