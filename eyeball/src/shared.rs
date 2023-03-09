@@ -69,13 +69,13 @@ impl<T> Observable<T> {
     }
 
     /// Set the inner value to the given `value` and notify subscribers.
-    pub fn set(&mut self, value: T) {
+    pub fn set(&self, value: T) {
         self.state.write().unwrap().set(value);
     }
 
     /// Set the inner value to the given `value` and notify subscribers if the
     /// updated value does not equal the previous value.
-    pub fn set_eq(&mut self, value: T)
+    pub fn set_eq(&self, value: T)
     where
         T: Clone + PartialEq,
     {
@@ -87,7 +87,7 @@ impl<T> Observable<T> {
     /// Set the inner value to the given `value` and notify subscribers if the
     /// hash of the updated value does not equal the hash of the previous
     /// value.
-    pub fn set_hash(&mut self, value: T)
+    pub fn set_hash(&self, value: T)
     where
         T: Hash,
     {
@@ -98,7 +98,7 @@ impl<T> Observable<T> {
 
     /// Set the inner value to the given `value`, notify subscribers and return
     /// the previous value.
-    pub fn replace(&mut self, value: T) -> T {
+    pub fn replace(&self, value: T) -> T {
         self.state.write().unwrap().replace(value)
     }
 
@@ -106,7 +106,7 @@ impl<T> Observable<T> {
     /// subscribers and return the previous value.
     ///
     /// Shorthand for `observable.replace(T::default())`.
-    pub fn take(&mut self) -> T
+    pub fn take(&self) -> T
     where
         T: Default,
     {
@@ -119,13 +119,13 @@ impl<T> Observable<T> {
     /// closure, subscribers will be notified as if it was. Use one of the
     /// other update methods below if you want to conditionally mutate the
     /// inner value.
-    pub fn update(&mut self, f: impl FnOnce(&mut T)) {
+    pub fn update(&self, f: impl FnOnce(&mut T)) {
         self.state.write().unwrap().update(f);
     }
 
     /// Update the inner value and notify subscribers if the updated value does
     /// not equal the previous value.
-    pub fn update_eq(&mut self, f: impl FnOnce(&mut T))
+    pub fn update_eq(&self, f: impl FnOnce(&mut T))
     where
         T: Clone + PartialEq,
     {
@@ -134,7 +134,7 @@ impl<T> Observable<T> {
 
     /// Update the inner value and notify subscribers if the hash of the updated
     /// value does not equal the hash of the previous value.
-    pub fn update_hash(&mut self, f: impl FnOnce(&mut T))
+    pub fn update_hash(&self, f: impl FnOnce(&mut T))
     where
         T: Hash,
     {

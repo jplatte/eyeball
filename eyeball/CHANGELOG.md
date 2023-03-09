@@ -1,3 +1,7 @@
+# 0.3.1
+
+- Relax `&mut` methods to `&` in `shared::Observable` (copy-paste error)
+
 # 0.3.0
 
 - Move the existing `Observable` into a module called `unique`, to contrast it

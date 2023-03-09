@@ -3,7 +3,7 @@ use tokio::task::JoinSet;
 
 #[tokio::test]
 async fn lag() {
-    let mut ob = Observable::new("hello, world!".to_owned());
+    let ob = Observable::new("hello, world!".to_owned());
     let mut rx1 = ob.subscribe();
     let mut rx2 = ob.subscribe();
 
@@ -32,7 +32,7 @@ async fn separate_tasks() {
 
     let mut join_set = JoinSet::new();
     for i in 1..=32 {
-        let mut ob = ob.clone();
+        let ob = ob.clone();
         join_set.spawn(async move {
             ob.set(Box::new([i; 256]));
         });
@@ -48,7 +48,7 @@ async fn lag_no_clone() {
     // no Clone impl
     struct Foo(String);
 
-    let mut ob = Observable::new(Foo("hello, world!".to_owned()));
+    let ob = Observable::new(Foo("hello, world!".to_owned()));
     let mut rx1 = ob.subscribe();
     let mut rx2 = ob.subscribe();
 
