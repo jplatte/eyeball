@@ -1,3 +1,7 @@
+# unreleased
+
+- Add `shared::Observable::get`
+
 # 0.3.1
 
 - Relax `&mut` methods to `&` in `shared::Observable` (copy-paste error)

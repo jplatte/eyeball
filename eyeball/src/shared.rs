@@ -47,6 +47,14 @@ impl<T> Observable<T> {
         Subscriber::new(Arc::clone(&self.state), version)
     }
 
+    /// Get a clone of the inner value.
+    pub fn get(&self) -> T
+    where
+        T: Clone,
+    {
+        self.state.read().unwrap().get().clone()
+    }
+
     /// Read the inner value.
     ///
     /// While the returned read guard is alive, nobody can update the inner
