@@ -3,9 +3,8 @@
 //! This crate implements a basic form of the [Observer pattern][] for Rust.
 //! It provides [`unique::Observable<T>`] as a type that semi-transparently
 //! wraps an inner value `T` and broadcasts changes to any associated
-//! [`Subscriber<T>`][unique::Subscriber]s. `Subscriber`s can currently only be
-//! polled for updates using `async` / `.await`, but this may change in the
-//! future.
+//! [`Subscriber<T>`]s. `Subscriber`s can currently only be polled for updates
+//! using `async` / `.await`, but this may change in the future.
 //!
 //! There is also [`shared::Observable<T>`] as another variation which
 //! implements [`Clone`] but not [`Deref`][std::ops::Deref]. It is more
@@ -65,10 +64,6 @@
 //!
 //! Cargo features:
 //!
-//! - `unique` (enabled by default): Enables the `unique` module. Compared to
-//!   the `shared` module, this requires one extra dependency so this feature is
-//!   provided as a way to trim the dependency tree in case you don't need
-//!   [`unique::Observable`].
 //! - `tracing`: Emit [tracing] events when updates are sent out
 //!
 //! [Observer pattern]: https://en.wikipedia.org/wiki/Observer_pattern
@@ -76,7 +71,13 @@
 #![warn(missing_debug_implementations, missing_docs)]
 #![allow(clippy::new_without_default)]
 
+mod read_guard;
 pub mod shared;
 mod state;
-#[cfg(feature = "unique")]
+pub mod subscriber;
 pub mod unique;
+
+#[doc(inline)]
+pub use read_guard::ObservableReadGuard;
+#[doc(inline)]
+pub use subscriber::Subscriber;
