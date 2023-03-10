@@ -1,3 +1,10 @@
+# 0.4.0
+
+- Make `unique::Subscriber` and `shared::Subscriber` the same type
+  - Same for `ObservableReadGuard` and other auxiliary types
+- The `unique` Cargo feature was removed, `readlock` is no longer an optional
+  dependency
+
 # 0.3.2
 
 - Add `shared::Observable::get`
