@@ -32,7 +32,7 @@ impl<T> Subscriber<T> {
     /// extension trait such as `futures::StreamExt` or
     /// `tokio_stream::StreamExt`.
     #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> Next<T>
+    pub fn next(&mut self) -> Next<'_, T>
     where
         T: Clone,
     {
