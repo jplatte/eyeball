@@ -1,4 +1,4 @@
-# unreleased
+# 0.3.2
 
 - Add `shared::Observable::get`
 
