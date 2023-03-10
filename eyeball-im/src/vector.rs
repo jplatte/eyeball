@@ -256,7 +256,7 @@ impl<T: Clone + Send + Sync + 'static> Stream for VectorSubscriber<T> {
     }
 }
 
-/// A change to a [`ObservableVector`].
+/// A change to an [`ObservableVector`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 // FIXME: Clone bound currently needed for derived `impl Debug for Vector<T>`
 pub enum VectorDiff<T: Clone> {
