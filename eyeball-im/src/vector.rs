@@ -5,12 +5,12 @@ use std::{
 };
 
 use futures_core::Stream;
-use im::Vector;
+use imbl::Vector;
 use tokio::sync::broadcast::{self, Sender};
 use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
 
 /// An ordered list of elements that broadcasts any changes made to it.
-pub struct ObservableVector<T: Clone> {
+pub struct ObservableVector<T> {
     values: Vector<T>,
     sender: Sender<BroadcastMessage<T>>,
 }
@@ -180,7 +180,7 @@ impl<T: Clone + Send + Sync + 'static> Default for ObservableVector<T> {
 
 impl<T> fmt::Debug for ObservableVector<T>
 where
-    T: Clone + fmt::Debug,
+    T: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ObservableVector").field("values", &self.values).finish_non_exhaustive()
@@ -189,7 +189,7 @@ where
 
 // Note: No DerefMut because all mutating must go through inherent methods that
 // notify subscribers
-impl<T: Clone> ops::Deref for ObservableVector<T> {
+impl<T> ops::Deref for ObservableVector<T> {
     type Target = Vector<T>;
 
     fn deref(&self) -> &Self::Target {
@@ -206,7 +206,7 @@ impl<T: Clone + Send + Sync + 'static> From<Vector<T>> for ObservableVector<T> {
 }
 
 #[derive(Clone)]
-struct BroadcastMessage<T: Clone> {
+struct BroadcastMessage<T> {
     diff: VectorDiff<T>,
     state: Vector<T>,
 }
@@ -217,12 +217,12 @@ struct BroadcastMessage<T: Clone> {
 /// other futures-related crates have extension traits with convenience
 /// methods).
 #[derive(Debug)]
-pub struct VectorSubscriber<T: Clone> {
+pub struct VectorSubscriber<T> {
     inner: BroadcastStream<BroadcastMessage<T>>,
     must_reset: bool,
 }
 
-impl<T: Clone> VectorSubscriber<T> {
+impl<T> VectorSubscriber<T> {
     const fn new(inner: BroadcastStream<BroadcastMessage<T>>) -> Self {
         Self { inner, must_reset: false }
     }
@@ -258,8 +258,7 @@ impl<T: Clone + Send + Sync + 'static> Stream for VectorSubscriber<T> {
 
 /// A change to an [`ObservableVector`].
 #[derive(Clone, Debug, PartialEq, Eq)]
-// FIXME: Clone bound currently needed for derived `impl Debug for Vector<T>`
-pub enum VectorDiff<T: Clone> {
+pub enum VectorDiff<T> {
     /// Multiple elements were appended.
     Append {
         /// The appended elements.

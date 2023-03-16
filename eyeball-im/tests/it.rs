@@ -1,4 +1,4 @@
-use im::Vector;
+use imbl::Vector;
 use tokio_stream::StreamExt as _;
 
 use eyeball_im::{ObservableVector, VectorDiff};
