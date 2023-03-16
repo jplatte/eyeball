@@ -108,6 +108,30 @@ impl<T> Subscriber<T> {
         ObservableReadGuard::new(self.state.lock())
     }
 
+    /// Reset the observed version of the inner value.
+    ///
+    /// After calling this, it is guaranteed that the next call to
+    /// `.next().await` or `.next_ref().await` will resolve immediately.
+    ///
+    /// This is only useful if you do this before passing the subscriber to some
+    /// other generic function or returning it, if you would be calling
+    /// `.next().await` right afterwards, you can call
+    /// [`.next_now()`][Self::next_now] instead (same for `.reset()` plus
+    /// `.next_ref().await`, which can be expressed by
+    /// [`.next_ref_now()`](Self::next_ref_now)).
+    pub fn reset(&mut self) {
+        self.observed_version = 0;
+    }
+
+    /// Clone this `Subscriber` and reset the observed version of the inner
+    /// value.
+    ///
+    /// This is equivalent to using the regular [`clone`][Self::clone] method
+    /// and calling [`reset`][Self::reset] on the clone afterwards.
+    pub fn clone_reset(&self) -> Self {
+        Self { state: self.state.clone(), observed_version: 0 }
+    }
+
     fn poll_next_ref(&mut self, cx: &mut Context<'_>) -> Poll<Option<ObservableReadGuard<'_, T>>> {
         let state = self.state.lock();
         let version = state.version();
@@ -123,6 +147,15 @@ impl<T> Subscriber<T> {
     }
 }
 
+/// Clone this `Subscriber` exactly, including the observed version of the inner
+/// value.
+///
+/// That means that if the original `Subscriber` was up-to-date with the latest
+/// value of the observable, the new one will be as well, and vice-versa.
+///
+/// See [`clone_reset`][Self::clone_reset] for a convenient way of making a new
+/// `Subscriber` from an existing one without inheriting the observed version of
+/// the inner value.
 impl<T> Clone for Subscriber<T> {
     fn clone(&self) -> Self {
         Self { state: self.state.clone(), observed_version: self.observed_version }

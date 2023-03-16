@@ -1,6 +1,7 @@
 # unreleased
 
 - Implement `Clone` for `Subscriber`
+- Add `Subscriber::reset` and `Subscriber::clone_reset`
 
 # 0.4.0
 
