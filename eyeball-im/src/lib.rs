@@ -9,3 +9,6 @@
 mod vector;
 
 pub use vector::{ObservableVector, VectorDiff, VectorSubscriber};
+
+#[doc(no_inline)]
+pub use imbl::Vector;
