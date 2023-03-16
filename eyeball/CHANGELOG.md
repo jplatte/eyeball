@@ -2,6 +2,7 @@
 
 - Implement `Clone` for `Subscriber`
 - Add `Subscriber::reset` and `Subscriber::clone_reset`
+- Add `Observable::subscribe_reset` for both observable types
 
 # 0.4.0
 

@@ -28,8 +28,28 @@ impl<T> Observable<T> {
     }
 
     /// Obtain a new subscriber.
+    ///
+    /// Calling `.next().await` or `.next_ref().await` on the returned
+    /// subscriber only resolves once the inner value has been updated again
+    /// after the call to `subscribe`.
+    ///
+    /// See [`subscribe_reset`][Self::subscribe_reset] if you want to obtain a
+    /// subscriber that immediately yields without any updates.
     pub fn subscribe(this: &Self) -> Subscriber<T> {
         Subscriber::new(Shared::get_read_lock(&this.state), this.state.version())
+    }
+
+    /// Obtain a new subscriber that immediately yields.
+    ///
+    /// `.subscribe_reset()` is equivalent to `.subscribe()` with a subsequent
+    /// call to [`.reset()`][Subscriber::reset] on the returned subscriber.
+    ///
+    /// In contrast to [`subscribe`][Self::subscribe], calling `.next().await`
+    /// or `.next_ref().await` on the returned subscriber before updating the
+    /// inner value yields the current value instead of waiting. Further calls
+    /// to either of the two will wait for updates.
+    pub fn subscribe_reset(this: &Self) -> Subscriber<T> {
+        Subscriber::new(Shared::get_read_lock(&this.state), 0)
     }
 
     /// Get a reference to the inner value.
