@@ -1,3 +1,7 @@
+# unreleased
+
+- Implement `Clone` for `Subscriber`
+
 # 0.4.0
 
 - Make `unique::Subscriber` and `shared::Subscriber` the same type

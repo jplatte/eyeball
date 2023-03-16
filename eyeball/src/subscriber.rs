@@ -123,6 +123,12 @@ impl<T> Subscriber<T> {
     }
 }
 
+impl<T> Clone for Subscriber<T> {
+    fn clone(&self) -> Self {
+        Self { state: self.state.clone(), observed_version: self.observed_version }
+    }
+}
+
 impl<T: Clone> Stream for Subscriber<T> {
     type Item = T;
 
