@@ -1,4 +1,4 @@
-# unreleased
+# 0.4.2
 
 - Add `unique::Observable::subscriber_count`
 - Add `shared::Observable::ref_count`
