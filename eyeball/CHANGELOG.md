@@ -1,3 +1,8 @@
+# unreleased
+
+- Add `unique::Observable::subscriber_count`
+- Add `shared::Observable::ref_count`
+
 # 0.4.1
 
 - Implement `Clone` for `Subscriber`

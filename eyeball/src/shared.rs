@@ -165,6 +165,19 @@ impl<T> Observable<T> {
     {
         self.state.write().unwrap().update_hash(f);
     }
+
+    /// Get the number of references to the inner value.
+    ///
+    /// Every clone of the `Observable` and every associated `Subscriber` holds
+    /// a reference, so this is the sum of all clones and subscribers.
+    /// This always returns at least `1` since `self` is included in the count.
+    ///
+    /// Be careful when using this. The result is only reliable if it is exactly
+    /// `1`, as otherwise it could be incremented right after your call to this
+    /// function, before you look at its result or do anything based on that.
+    pub fn ref_count(&self) -> usize {
+        Arc::strong_count(&self.state)
+    }
 }
 
 impl<T> Clone for Observable<T> {

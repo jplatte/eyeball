@@ -134,6 +134,15 @@ impl<T> Observable<T> {
     {
         Shared::lock(&mut this.state).update_hash(f);
     }
+
+    /// Get the number of subscribers.
+    ///
+    /// Be careful when using this. The result is only reliable if it is exactly
+    /// `0`, as otherwise it could be incremented right after your call to this
+    /// function, before you look at its result or do anything based on that.
+    pub fn subscriber_count(&self) -> usize {
+        Shared::read_count(&self.state)
+    }
 }
 
 impl<T: Default> Default for Observable<T> {
