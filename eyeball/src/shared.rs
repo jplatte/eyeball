@@ -144,6 +144,14 @@ impl<T> Observable<T> {
         self.state.write().unwrap().update(f);
     }
 
+    /// Maybe update the inner value and notify subscribers if it changed.
+    ///
+    /// The closure given to this function must return `true` if subscribers
+    /// should be notified of a change to the inner value.
+    pub fn update_if(&self, f: impl FnOnce(&mut T) -> bool) {
+        self.state.write().unwrap().update_if(f);
+    }
+
     /// Update the inner value and notify subscribers if the updated value does
     /// not equal the previous value.
     pub fn update_eq(&self, f: impl FnOnce(&mut T))
@@ -261,6 +269,14 @@ impl<'a, T> ObservableWriteGuard<'a, T> {
     /// inner value.
     pub fn update(this: &mut Self, f: impl FnOnce(&mut T)) {
         this.inner.update(f);
+    }
+
+    /// Maybe update the inner value and notify subscribers if it changed.
+    ///
+    /// The closure given to this function must return `true` if subscribers
+    /// should be notified of a change to the inner value.
+    pub fn update_if(this: &mut Self, f: impl FnOnce(&mut T) -> bool) {
+        this.inner.update_if(f);
     }
 
     /// Update the inner value and notify subscribers if the updated value does

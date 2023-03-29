@@ -79,6 +79,12 @@ impl<T> ObservableState<T> {
         self.incr_version_and_wake();
     }
 
+    pub fn update_if(&mut self, f: impl FnOnce(&mut T) -> bool) {
+        if f(&mut self.value) {
+            self.incr_version_and_wake();
+        }
+    }
+
     pub fn update_eq(&mut self, f: impl FnOnce(&mut T))
     where
         T: Clone + PartialEq,

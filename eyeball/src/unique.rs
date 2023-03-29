@@ -113,6 +113,14 @@ impl<T> Observable<T> {
         Shared::lock(&mut this.state).update(f);
     }
 
+    /// Maybe update the inner value and notify subscribers if it changed.
+    ///
+    /// The closure given to this function must return `true` if subscribers
+    /// should be notified of a change to the inner value.
+    pub fn update_if(this: &mut Self, f: impl FnOnce(&mut T) -> bool) {
+        Shared::lock(&mut this.state).update_if(f);
+    }
+
     /// Update the inner value and notify subscribers if the updated value does
     /// not equal the previous value.
     pub fn update_eq(this: &mut Self, f: impl FnOnce(&mut T))
