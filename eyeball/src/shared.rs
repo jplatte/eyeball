@@ -126,7 +126,7 @@ impl<T> Observable<T> {
     /// Set the inner value to a `Default` instance of its type, notify
     /// subscribers and return the previous value.
     ///
-    /// Shorthand for `observable.replace(T::default())`.
+    /// Shorthand for `observable.set(T::default())`.
     pub fn take(&self) -> T
     where
         T: Default,
@@ -235,7 +235,7 @@ impl<'a, T> ObservableWriteGuard<'a, T> {
     /// Set the inner value to a `Default` instance of its type, notify
     /// subscribers and return the previous value.
     ///
-    /// Shorthand for `Observable::replace(this, T::default())`.
+    /// Shorthand for `Observable::set(this, T::default())`.
     pub fn take(this: &mut Self) -> T
     where
         T: Default,
