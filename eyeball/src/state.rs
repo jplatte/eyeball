@@ -51,6 +51,15 @@ impl<T> ObservableState<T> {
         self.incr_version_and_wake();
     }
 
+    pub(crate) fn set_eq(&mut self, value: T)
+    where
+        T: PartialEq,
+    {
+        if self.value != value {
+            self.set(value);
+        }
+    }
+
     pub(crate) fn replace(&mut self, value: T) -> T {
         let result = mem::replace(&mut self.value, value);
         self.incr_version_and_wake();

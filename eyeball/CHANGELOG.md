@@ -1,3 +1,7 @@
+# unreleased
+
+- Remove `T: Clone` bound from `set_eq`
+
 # 0.4.2
 
 - Add `unique::Observable::subscriber_count`

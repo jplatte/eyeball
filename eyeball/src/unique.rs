@@ -71,11 +71,9 @@ impl<T> Observable<T> {
     /// updated value does not equal the previous value.
     pub fn set_eq(this: &mut Self, value: T)
     where
-        T: Clone + PartialEq,
+        T: PartialEq,
     {
-        Self::update_eq(this, |inner| {
-            *inner = value;
-        });
+        Shared::lock(&mut this.state).set_eq(value);
     }
 
     /// Set the inner value to the given `value` and notify subscribers if the
