@@ -52,7 +52,7 @@ impl<T> ObservableState<T> {
         result
     }
 
-    pub(crate) fn set_eq(&mut self, value: T) -> Option<T>
+    pub(crate) fn set_if_not_eq(&mut self, value: T) -> Option<T>
     where
         T: PartialEq,
     {
@@ -63,7 +63,7 @@ impl<T> ObservableState<T> {
         }
     }
 
-    pub fn set_hash(&mut self, value: T) -> Option<T>
+    pub fn set_if_hash_not_eq(&mut self, value: T) -> Option<T>
     where
         T: Hash,
     {

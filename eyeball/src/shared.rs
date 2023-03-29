@@ -104,11 +104,11 @@ impl<T> Observable<T> {
     ///
     /// If the inner value is set, subscribers are notified and
     /// `Some(previous_value)` is returned. Otherwise, `None` is returned.
-    pub fn set_eq(&self, value: T) -> Option<T>
+    pub fn set_if_not_eq(&self, value: T) -> Option<T>
     where
         T: PartialEq,
     {
-        self.state.write().unwrap().set_eq(value)
+        self.state.write().unwrap().set_if_not_eq(value)
     }
 
     /// Set the inner value to the given `value` if it has a different hash than
@@ -116,11 +116,11 @@ impl<T> Observable<T> {
     ///
     /// If the inner value is set, subscribers are notified and
     /// `Some(previous_value)` is returned. Otherwise, `None` is returned.
-    pub fn set_hash(&self, value: T) -> Option<T>
+    pub fn set_if_hash_not_eq(&self, value: T) -> Option<T>
     where
         T: Hash,
     {
-        self.state.write().unwrap().set_hash(value)
+        self.state.write().unwrap().set_if_hash_not_eq(value)
     }
 
     /// Set the inner value to a `Default` instance of its type, notify
@@ -213,11 +213,11 @@ impl<'a, T> ObservableWriteGuard<'a, T> {
     ///
     /// If the inner value is set, subscribers are notified and
     /// `Some(previous_value)` is returned. Otherwise, `None` is returned.
-    pub fn set_eq(this: &mut Self, value: T) -> Option<T>
+    pub fn set_if_not_eq(this: &mut Self, value: T) -> Option<T>
     where
         T: PartialEq,
     {
-        this.inner.set_eq(value)
+        this.inner.set_if_not_eq(value)
     }
 
     /// Set the inner value to the given `value` if it has a different hash than
@@ -225,11 +225,11 @@ impl<'a, T> ObservableWriteGuard<'a, T> {
     ///
     /// If the inner value is set, subscribers are notified and
     /// `Some(previous_value)` is returned. Otherwise, `None` is returned.
-    pub fn set_hash(this: &mut Self, value: T) -> Option<T>
+    pub fn set_if_hash_not_eq(this: &mut Self, value: T) -> Option<T>
     where
         T: Hash,
     {
-        this.inner.set_hash(value)
+        this.inner.set_if_hash_not_eq(value)
     }
 
     /// Set the inner value to a `Default` instance of its type, notify

@@ -73,11 +73,11 @@ impl<T> Observable<T> {
     ///
     /// If the inner value is set, subscribers are notified and
     /// `Some(previous_value)` is returned. Otherwise, `None` is returned.
-    pub fn set_eq(this: &mut Self, value: T) -> Option<T>
+    pub fn set_if_not_eq(this: &mut Self, value: T) -> Option<T>
     where
         T: PartialEq,
     {
-        Shared::lock(&mut this.state).set_eq(value)
+        Shared::lock(&mut this.state).set_if_not_eq(value)
     }
 
     /// Set the inner value to the given `value` if it has a different hash than
@@ -85,11 +85,11 @@ impl<T> Observable<T> {
     ///
     /// If the inner value is set, subscribers are notified and
     /// `Some(previous_value)` is returned. Otherwise, `None` is returned.
-    pub fn set_hash(this: &mut Self, value: T) -> Option<T>
+    pub fn set_if_hash_not_eq(this: &mut Self, value: T) -> Option<T>
     where
         T: Hash,
     {
-        Shared::lock(&mut this.state).set_hash(value)
+        Shared::lock(&mut this.state).set_if_hash_not_eq(value)
     }
 
     /// Set the inner value to a `Default` instance of its type, notify

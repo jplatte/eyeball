@@ -2,9 +2,12 @@
 
 - Remove `T: Clone` bound from `set_eq`
 - Merge `replace`s functionality of returning the previous value into `set`
-- Return the previous inner value if `set_eq` or `set_hash` replaces it
-- Add `update_if`
 - Remove `update_eq`, `update_hash`
+- Rename `set_eq` to `set_if_not_eq`
+- Rename `set_hash` to `set_if_hash_not_eq`
+- Return the previous inner value if `set_if_not_eq` or `set_if_hash_not_eq`
+  replaces it
+- Add `update_if`
 
 # 0.4.2
 
