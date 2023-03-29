@@ -46,9 +46,10 @@ impl<T> ObservableState<T> {
         self.wakers.write().unwrap().push(waker);
     }
 
-    pub(crate) fn set(&mut self, value: T) {
-        self.value = value;
+    pub(crate) fn set(&mut self, value: T) -> T {
+        let result = mem::replace(&mut self.value, value);
         self.incr_version_and_wake();
+        result
     }
 
     pub(crate) fn set_eq(&mut self, value: T)
@@ -58,12 +59,6 @@ impl<T> ObservableState<T> {
         if self.value != value {
             self.set(value);
         }
-    }
-
-    pub(crate) fn replace(&mut self, value: T) -> T {
-        let result = mem::replace(&mut self.value, value);
-        self.incr_version_and_wake();
-        result
     }
 
     pub fn update(&mut self, f: impl FnOnce(&mut T)) {

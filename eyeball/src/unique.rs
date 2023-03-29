@@ -62,9 +62,10 @@ impl<T> Observable<T> {
         this.state.get()
     }
 
-    /// Set the inner value to the given `value` and notify subscribers.
-    pub fn set(this: &mut Self, value: T) {
-        Shared::lock(&mut this.state).set(value);
+    /// Set the inner value to the given `value`, notify subscribers and return
+    /// the previous value.
+    pub fn set(this: &mut Self, value: T) -> T {
+        Shared::lock(&mut this.state).set(value)
     }
 
     /// Set the inner value to the given `value` and notify subscribers if the
@@ -88,12 +89,6 @@ impl<T> Observable<T> {
         });
     }
 
-    /// Set the inner value to the given `value`, notify subscribers and return
-    /// the previous value.
-    pub fn replace(this: &mut Self, value: T) -> T {
-        Shared::lock(&mut this.state).replace(value)
-    }
-
     /// Set the inner value to a `Default` instance of its type, notify
     /// subscribers and return the previous value.
     ///
@@ -102,7 +97,7 @@ impl<T> Observable<T> {
     where
         T: Default,
     {
-        Self::replace(this, T::default())
+        Self::set(this, T::default())
     }
 
     /// Update the inner value and notify subscribers.

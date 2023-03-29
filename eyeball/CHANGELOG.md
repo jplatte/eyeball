@@ -1,6 +1,7 @@
 # unreleased
 
 - Remove `T: Clone` bound from `set_eq`
+- Merge `replace`s functionality of returning the previous value into `set`
 
 # 0.4.2
 

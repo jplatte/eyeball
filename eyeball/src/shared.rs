@@ -93,9 +93,10 @@ impl<T> Observable<T> {
         ObservableWriteGuard::new(self.state.write().unwrap())
     }
 
-    /// Set the inner value to the given `value` and notify subscribers.
-    pub fn set(&self, value: T) {
-        self.state.write().unwrap().set(value);
+    /// Set the inner value to the given `value`, notify subscribers and return
+    /// the previous value.
+    pub fn set(&self, value: T) -> T {
+        self.state.write().unwrap().set(value)
     }
 
     /// Set the inner value to the given `value` and notify subscribers if the
@@ -119,12 +120,6 @@ impl<T> Observable<T> {
         });
     }
 
-    /// Set the inner value to the given `value`, notify subscribers and return
-    /// the previous value.
-    pub fn replace(&self, value: T) -> T {
-        self.state.write().unwrap().replace(value)
-    }
-
     /// Set the inner value to a `Default` instance of its type, notify
     /// subscribers and return the previous value.
     ///
@@ -133,7 +128,7 @@ impl<T> Observable<T> {
     where
         T: Default,
     {
-        self.replace(T::default())
+        self.set(T::default())
     }
 
     /// Update the inner value and notify subscribers.
@@ -214,9 +209,10 @@ impl<'a, T> ObservableWriteGuard<'a, T> {
         Self { inner }
     }
 
-    /// Set the inner value to the given `value` and notify subscribers.
-    pub fn set(this: &mut Self, value: T) {
-        this.inner.set(value);
+    /// Set the inner value to the given `value`, notify subscribers and return
+    /// the previous value.
+    pub fn set(this: &mut Self, value: T) -> T {
+        this.inner.set(value)
     }
 
     /// Set the inner value to the given `value` and notify subscribers if the
@@ -242,12 +238,6 @@ impl<'a, T> ObservableWriteGuard<'a, T> {
         });
     }
 
-    /// Set the inner value to the given `value`, notify subscribers and return
-    /// the previous value.
-    pub fn replace(this: &mut Self, value: T) -> T {
-        this.inner.replace(value)
-    }
-
     /// Set the inner value to a `Default` instance of its type, notify
     /// subscribers and return the previous value.
     ///
@@ -256,7 +246,7 @@ impl<'a, T> ObservableWriteGuard<'a, T> {
     where
         T: Default,
     {
-        Self::replace(this, T::default())
+        Self::set(this, T::default())
     }
 
     /// Update the inner value and notify subscribers.
