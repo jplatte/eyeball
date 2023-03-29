@@ -69,7 +69,8 @@
 //! [Observer pattern]: https://en.wikipedia.org/wiki/Observer_pattern
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![warn(missing_debug_implementations, missing_docs, rust_2018_idioms)]
-#![allow(clippy::new_without_default)]
+// https://github.com/rust-lang/rust-clippy/issues/10486
+#![allow(clippy::double_must_use)]
 
 mod read_guard;
 pub mod shared;

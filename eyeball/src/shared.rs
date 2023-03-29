@@ -31,6 +31,7 @@ pub struct Observable<T> {
 
 impl<T> Observable<T> {
     /// Create a new `Observable` with the given initial value.
+    #[must_use]
     pub fn new(value: T) -> Self {
         Self {
             state: Arc::new(RwLock::new(ObservableState::new(value))),
@@ -161,6 +162,7 @@ impl<T> Observable<T> {
     /// Be careful when using this. The result is only reliable if it is exactly
     /// `1`, as otherwise it could be incremented right after your call to this
     /// function, before you look at its result or do anything based on that.
+    #[must_use]
     pub fn ref_count(&self) -> usize {
         Arc::strong_count(&self.state)
     }
@@ -192,6 +194,7 @@ impl<T> Drop for Observable<T> {
 ///
 /// Note that as long as an `ObservableWriteGuard` is kept alive, the associated
 /// [`Observable`] is locked and can not be updated except through that guard.
+#[must_use]
 #[clippy::has_significant_drop]
 pub struct ObservableWriteGuard<'a, T> {
     inner: RwLockWriteGuard<'a, ObservableState<T>>,

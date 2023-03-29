@@ -15,6 +15,7 @@ use readlock::SharedReadLock;
 use crate::{state::ObservableState, ObservableReadGuard};
 
 /// A subscriber for updates of an `Observable`.
+#[must_use]
 #[derive(Debug)]
 pub struct Subscriber<T> {
     state: SharedReadLock<ObservableState<T>>,
@@ -46,6 +47,7 @@ impl<T> Subscriber<T> {
     /// [`next`][Self::next] or [`next_ref`][Self::next_ref] won't return the
     /// same value again. See [`get`][Self::get] for a function that doesn't
     /// mark the value as observed.
+    #[must_use]
     pub fn next_now(&mut self) -> T
     where
         T: Clone,
@@ -61,6 +63,7 @@ impl<T> Subscriber<T> {
     /// it is **not** marked as observed such that a subsequent call of
     /// [`next`][Self::next] or [`next_ref`][Self::next_ref] will return the
     /// same value again.
+    #[must_use]
     pub fn get(&self) -> T
     where
         T: Clone,
@@ -73,6 +76,7 @@ impl<T> Subscriber<T> {
     /// You can use this method to get updates of an `Observable` where the
     /// inner type does not implement `Clone`. However, the `Observable`
     /// will be locked (not updateable) while any read locks are alive.
+    #[must_use]
     pub async fn next_ref(&mut self) -> Option<ObservableReadGuard<'_, T>> {
         // Unclear how to implement this as a named future.
         poll_fn(|cx| self.poll_next_ref(cx).map(|opt| opt.map(|_| {}))).await?;
@@ -171,6 +175,7 @@ impl<T: Clone> Stream for Subscriber<T> {
 }
 
 /// Future returned by [`Subscriber::next`].
+#[must_use]
 #[derive(Debug)]
 pub struct Next<'a, T> {
     subscriber: &'a mut Subscriber<T>,

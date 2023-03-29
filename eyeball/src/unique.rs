@@ -23,6 +23,7 @@ pub struct Observable<T> {
 
 impl<T> Observable<T> {
     /// Create a new `Observable` with the given initial value.
+    #[must_use]
     pub fn new(value: T) -> Self {
         Self { state: Shared::new(ObservableState::new(value)) }
     }
@@ -126,6 +127,7 @@ impl<T> Observable<T> {
     /// Be careful when using this. The result is only reliable if it is exactly
     /// `0`, as otherwise it could be incremented right after your call to this
     /// function, before you look at its result or do anything based on that.
+    #[must_use]
     pub fn subscriber_count(&self) -> usize {
         Shared::read_count(&self.state)
     }

@@ -8,6 +8,7 @@ use crate::state::ObservableState;
 ///
 /// Note that as long as an `ObservableReadGuard` is kept alive, the associated
 /// `Observable` is locked and can not be updated.
+#[must_use]
 #[clippy::has_significant_drop]
 pub struct ObservableReadGuard<'a, T> {
     inner: SharedReadGuard<'a, ObservableState<T>>,
