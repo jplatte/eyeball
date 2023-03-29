@@ -99,25 +99,28 @@ impl<T> Observable<T> {
         self.state.write().unwrap().set(value)
     }
 
-    /// Set the inner value to the given `value` and notify subscribers if the
-    /// updated value does not equal the previous value.
-    pub fn set_eq(&self, value: T)
+    /// Set the inner value to the given `value` if it doesn't compare equal to
+    /// the existing value.
+    ///
+    /// If the inner value is set, subscribers are notified and
+    /// `Some(previous_value)` is returned. Otherwise, `None` is returned.
+    pub fn set_eq(&self, value: T) -> Option<T>
     where
         T: PartialEq,
     {
-        self.state.write().unwrap().set_eq(value);
+        self.state.write().unwrap().set_eq(value)
     }
 
-    /// Set the inner value to the given `value` and notify subscribers if the
-    /// hash of the updated value does not equal the hash of the previous
-    /// value.
-    pub fn set_hash(&self, value: T)
+    /// Set the inner value to the given `value` if it has a different hash than
+    /// the existing value.
+    ///
+    /// If the inner value is set, subscribers are notified and
+    /// `Some(previous_value)` is returned. Otherwise, `None` is returned.
+    pub fn set_hash(&self, value: T) -> Option<T>
     where
         T: Hash,
     {
-        Self::update_hash(self, |inner| {
-            *inner = value;
-        });
+        self.state.write().unwrap().set_hash(value)
     }
 
     /// Set the inner value to a `Default` instance of its type, notify
@@ -215,27 +218,28 @@ impl<'a, T> ObservableWriteGuard<'a, T> {
         this.inner.set(value)
     }
 
-    /// Set the inner value to the given `value` and notify subscribers if the
-    /// updated value does not equal the previous value.
-    pub fn set_eq(this: &mut Self, value: T)
+    /// Set the inner value to the given `value` if it doesn't compare equal to
+    /// the existing value.
+    ///
+    /// If the inner value is set, subscribers are notified and
+    /// `Some(previous_value)` is returned. Otherwise, `None` is returned.
+    pub fn set_eq(this: &mut Self, value: T) -> Option<T>
     where
-        T: Clone + PartialEq,
+        T: PartialEq,
     {
-        Self::update_eq(this, |inner| {
-            *inner = value;
-        });
+        this.inner.set_eq(value)
     }
 
-    /// Set the inner value to the given `value` and notify subscribers if the
-    /// hash of the updated value does not equal the hash of the previous
-    /// value.
-    pub fn set_hash(this: &mut Self, value: T)
+    /// Set the inner value to the given `value` if it has a different hash than
+    /// the existing value.
+    ///
+    /// If the inner value is set, subscribers are notified and
+    /// `Some(previous_value)` is returned. Otherwise, `None` is returned.
+    pub fn set_hash(this: &mut Self, value: T) -> Option<T>
     where
         T: Hash,
     {
-        Self::update_hash(this, |inner| {
-            *inner = value;
-        });
+        this.inner.set_hash(value)
     }
 
     /// Set the inner value to a `Default` instance of its type, notify

@@ -2,6 +2,7 @@
 
 - Remove `T: Clone` bound from `set_eq`
 - Merge `replace`s functionality of returning the previous value into `set`
+- Return the previous inner value if `set_eq` or `set_hash` replaces it
 
 # 0.4.2
 

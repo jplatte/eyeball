@@ -52,12 +52,25 @@ impl<T> ObservableState<T> {
         result
     }
 
-    pub(crate) fn set_eq(&mut self, value: T)
+    pub(crate) fn set_eq(&mut self, value: T) -> Option<T>
     where
         T: PartialEq,
     {
         if self.value != value {
-            self.set(value);
+            Some(self.set(value))
+        } else {
+            None
+        }
+    }
+
+    pub fn set_hash(&mut self, value: T) -> Option<T>
+    where
+        T: Hash,
+    {
+        if hash(&self.value) != hash(&value) {
+            Some(self.set(value))
+        } else {
+            None
         }
     }
 
@@ -81,19 +94,9 @@ impl<T> ObservableState<T> {
     where
         T: Hash,
     {
-        use std::collections::hash_map::DefaultHasher;
-
-        let mut hasher = DefaultHasher::new();
-        self.value.hash(&mut hasher);
-        let prev_hash = hasher.finish();
-
+        let prev_hash = hash(&self.value);
         f(&mut self.value);
-
-        let mut hasher = DefaultHasher::new();
-        self.value.hash(&mut hasher);
-        let new_hash = hasher.finish();
-
-        if prev_hash != new_hash {
+        if prev_hash != hash(&self.value) {
             self.incr_version_and_wake();
         }
     }
@@ -109,6 +112,14 @@ impl<T> ObservableState<T> {
         self.version += 1;
         wake(self.wakers.get_mut().unwrap().drain(..));
     }
+}
+
+fn hash<T: Hash>(value: &T) -> u64 {
+    use std::collections::hash_map::DefaultHasher;
+
+    let mut hasher = DefaultHasher::new();
+    value.hash(&mut hasher);
+    hasher.finish()
 }
 
 fn wake<I>(wakers: I)
