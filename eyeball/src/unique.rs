@@ -106,8 +106,8 @@ impl<T> Observable<T> {
     /// Update the inner value and notify subscribers.
     ///
     /// Note that even if the inner value is not actually changed by the
-    /// closure, subscribers will be notified as if it was. Use one of the
-    /// other update methods below if you want to conditionally mutate the
+    /// closure, subscribers will be notified as if it was. Use
+    /// [`update_if`][Self::update_if] if you want to conditionally mutate the
     /// inner value.
     pub fn update(this: &mut Self, f: impl FnOnce(&mut T)) {
         Shared::lock(&mut this.state).update(f);
@@ -119,24 +119,6 @@ impl<T> Observable<T> {
     /// should be notified of a change to the inner value.
     pub fn update_if(this: &mut Self, f: impl FnOnce(&mut T) -> bool) {
         Shared::lock(&mut this.state).update_if(f);
-    }
-
-    /// Update the inner value and notify subscribers if the updated value does
-    /// not equal the previous value.
-    pub fn update_eq(this: &mut Self, f: impl FnOnce(&mut T))
-    where
-        T: Clone + PartialEq,
-    {
-        Shared::lock(&mut this.state).update_eq(f);
-    }
-
-    /// Update the inner value and notify subscribers if the hash of the updated
-    /// value does not equal the hash of the previous value.
-    pub fn update_hash(this: &mut Self, f: impl FnOnce(&mut T))
-    where
-        T: Hash,
-    {
-        Shared::lock(&mut this.state).update_hash(f);
     }
 
     /// Get the number of subscribers.

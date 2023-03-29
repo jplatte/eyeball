@@ -85,28 +85,6 @@ impl<T> ObservableState<T> {
         }
     }
 
-    pub fn update_eq(&mut self, f: impl FnOnce(&mut T))
-    where
-        T: Clone + PartialEq,
-    {
-        let prev = self.value.clone();
-        f(&mut self.value);
-        if self.value != prev {
-            self.incr_version_and_wake();
-        }
-    }
-
-    pub fn update_hash(&mut self, f: impl FnOnce(&mut T))
-    where
-        T: Hash,
-    {
-        let prev_hash = hash(&self.value);
-        f(&mut self.value);
-        if prev_hash != hash(&self.value) {
-            self.incr_version_and_wake();
-        }
-    }
-
     /// "Close" the state – indicate that no further updates will happen.
     pub(crate) fn close(&mut self) {
         self.version = 0;

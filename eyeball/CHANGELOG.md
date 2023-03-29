@@ -4,6 +4,7 @@
 - Merge `replace`s functionality of returning the previous value into `set`
 - Return the previous inner value if `set_eq` or `set_hash` replaces it
 - Add `update_if`
+- Remove `update_eq`, `update_hash`
 
 # 0.4.2
 
