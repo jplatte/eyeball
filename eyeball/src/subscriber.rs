@@ -29,6 +29,9 @@ impl<T> Subscriber<T> {
 
     /// Wait for an update and get a clone of the updated value.
     ///
+    /// Awaiting returns `Some(_)` after an update happened, or `None` after the
+    /// `Observable` (and all clones for `shared::Observable`) is dropped.
+    ///
     /// This method is a convenience so you don't have to import a `Stream`
     /// extension trait such as `futures::StreamExt` or
     /// `tokio_stream::StreamExt`.
@@ -72,6 +75,9 @@ impl<T> Subscriber<T> {
     }
 
     /// Wait for an update and get a read lock for the updated value.
+    ///
+    /// Awaiting returns `Some(_)` after an update happened, or `None` after the
+    /// `Observable` (and all clones for `shared::Observable`) is dropped.
     ///
     /// You can use this method to get updates of an `Observable` where the
     /// inner type does not implement `Clone`. However, the `Observable`
