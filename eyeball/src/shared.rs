@@ -8,13 +8,13 @@
 use std::{
     fmt,
     hash::Hash,
-    ops,
+    mem, ops, ptr,
     sync::{Arc, RwLock, RwLockWriteGuard},
 };
 
-use readlock::{SharedReadGuard, SharedReadLock};
+use readlock::{Shared, SharedReadGuard, SharedReadLock};
 
-use crate::{state::ObservableState, ObservableReadGuard, Subscriber};
+use crate::{state::ObservableState, unique, ObservableReadGuard, Subscriber};
 
 /// A value whose changes will be broadcast to subscribers.
 ///
@@ -33,10 +33,11 @@ impl<T> Observable<T> {
     /// Create a new `Observable` with the given initial value.
     #[must_use]
     pub fn new(value: T) -> Self {
-        Self {
-            state: Arc::new(RwLock::new(ObservableState::new(value))),
-            _num_clones: Arc::new(()),
-        }
+        Self::from_inner(Arc::new(RwLock::new(ObservableState::new(value))))
+    }
+
+    pub(crate) fn from_inner(state: Arc<RwLock<ObservableState<T>>>) -> Observable<T> {
+        Self { state, _num_clones: Arc::new(()) }
     }
 
     /// Obtain a new subscriber.
@@ -189,6 +190,22 @@ impl<T> Observable<T> {
     #[must_use]
     pub fn ref_count(&self) -> usize {
         Arc::strong_count(&self.state)
+    }
+
+    /// Try converting this shared `Observable` into a [`unique::Observable`].
+    ///
+    /// Any subscribers created for `self` remain valid.
+    ///
+    /// This succeeds only if there are no other clones of this `Observable`
+    /// (`ob.observable_count()` is `1`). Otherwise it fails with `Err(self)`.
+    pub fn try_into_unique(self) -> Result<unique::Observable<T>, Self> {
+        // Destructure `self` without running `Drop`.
+        let state = unsafe { ptr::read(&self.state) };
+        let _num_clones = unsafe { ptr::read(&self._num_clones) };
+        mem::forget(self);
+
+        let shared = Shared::try_from_inner(state).map_err(|state| Self { state, _num_clones })?;
+        Ok(unique::Observable::from_inner(shared))
     }
 }
 
