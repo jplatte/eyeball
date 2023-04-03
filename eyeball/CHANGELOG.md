@@ -1,3 +1,7 @@
+# unreleased
+
+- `Add shared::Observable::{observable_count, subscriber_count}`
+
 # 0.5.0
 
 - Remove `T: Clone` bound from `set_eq`

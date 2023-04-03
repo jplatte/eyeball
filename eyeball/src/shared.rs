@@ -153,11 +153,35 @@ impl<T> Observable<T> {
         self.state.write().unwrap().update_if(f);
     }
 
+    /// Get the number of `Observable` clones.
+    ///
+    /// This always returns at least `1` since `self` is included in the count.
+    ///
+    /// Be careful when using this. The result is only reliable if it is exactly
+    /// `1`, as otherwise it could be incremented right after your call to this
+    /// function, before you look at its result or do anything based on that.
+    #[must_use]
+    pub fn observable_count(&self) -> usize {
+        Arc::strong_count(&self._num_clones)
+    }
+
+    /// Get the number of subscribers.
+    ///
+    /// Be careful when using this. The result can change right after your call
+    /// to this function, before you look at its result or do anything based
+    /// on that.
+    #[must_use]
+    pub fn subscriber_count(&self) -> usize {
+        self.ref_count() - self.observable_count()
+    }
+
     /// Get the number of references to the inner value.
     ///
     /// Every clone of the `Observable` and every associated `Subscriber` holds
     /// a reference, so this is the sum of all clones and subscribers.
     /// This always returns at least `1` since `self` is included in the count.
+    ///
+    /// Equivalent to `ob.observable_count() + ob.subscriber_count()`.
     ///
     /// Be careful when using this. The result is only reliable if it is exactly
     /// `1`, as otherwise it could be incremented right after your call to this
