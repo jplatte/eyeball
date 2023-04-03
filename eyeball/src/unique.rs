@@ -128,8 +128,8 @@ impl<T> Observable<T> {
     /// `0`, as otherwise it could be incremented right after your call to this
     /// function, before you look at its result or do anything based on that.
     #[must_use]
-    pub fn subscriber_count(&self) -> usize {
-        Shared::read_count(&self.state)
+    pub fn subscriber_count(this: &Self) -> usize {
+        Shared::read_count(&this.state)
     }
 }
 
