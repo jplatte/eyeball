@@ -3,6 +3,8 @@
 - `Add shared::Observable::{observable_count, subscriber_count}`
 - Make `unique::Observable::subscriber_count` a regular associated function like
   all the others, not a method
+- Add `unique::Observable::into_shared`
+- Add `shared::Observable::try_into_unique`
 
 # 0.5.0
 

@@ -4,11 +4,11 @@
 //! Use this in situations where only a single location in the code should be
 //! able to update the inner value.
 
-use std::{hash::Hash, ops};
+use std::{hash::Hash, mem, ops, ptr};
 
 use readlock::Shared;
 
-use crate::{state::ObservableState, Subscriber};
+use crate::{shared, state::ObservableState, Subscriber};
 
 /// A value whose changes will be broadcast to subscribers.
 ///
@@ -25,7 +25,12 @@ impl<T> Observable<T> {
     /// Create a new `Observable` with the given initial value.
     #[must_use]
     pub fn new(value: T) -> Self {
-        Self { state: Shared::new(ObservableState::new(value)) }
+        let state = Shared::new(ObservableState::new(value));
+        Self::from_inner(state)
+    }
+
+    pub(crate) fn from_inner(state: Shared<ObservableState<T>>) -> Observable<T> {
+        Self { state }
     }
 
     /// Obtain a new subscriber.
@@ -130,6 +135,18 @@ impl<T> Observable<T> {
     #[must_use]
     pub fn subscriber_count(this: &Self) -> usize {
         Shared::read_count(&this.state)
+    }
+
+    /// Convert this unique `Observable` into a [`shared::Observable`].
+    ///
+    /// Any subscribers created for `self` remain valid.
+    pub fn into_shared(this: Self) -> shared::Observable<T> {
+        // Destructure `this` without running `Drop`.
+        let state = unsafe { ptr::read(&this.state) };
+        mem::forget(this);
+
+        let rwlock = Shared::into_inner(state);
+        shared::Observable::from_inner(rwlock)
     }
 }
 
