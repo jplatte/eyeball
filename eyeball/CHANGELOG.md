@@ -1,4 +1,4 @@
-# unreleased
+# 0.5.1
 
 - `Add shared::Observable::{observable_count, subscriber_count}`
 
