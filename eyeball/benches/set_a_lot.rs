@@ -1,5 +1,3 @@
-use std::sync::atomic::AtomicBool;
-
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Bencher, Criterion};
 
 use eyeball::unique::Observable;
@@ -27,8 +25,6 @@ fn no_subscribers(b: &mut Bencher<'_>) {
 
 #[tokio::main]
 async fn n_subscribers(n: usize, b: &mut Bencher<'_>) {
-    static STOP: AtomicBool = AtomicBool::new(false);
-
     b.iter_batched(
         || {
             let ob = Observable::new(Box::new([0; 256]));
