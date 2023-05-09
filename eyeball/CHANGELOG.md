@@ -1,4 +1,4 @@
-# unreleased
+# 0.7.0
 
 - Remove `shared::Observable::try_into_unique`
   - It wasn't working as documented. It might be added back later. Please open
