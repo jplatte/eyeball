@@ -1,3 +1,9 @@
+# unreleased
+
+- Remove `shared::Observable::try_into_unique`
+  - It wasn't working as documented. It might be added back later. Please open
+    an issue if you want to have it back.
+
 # 0.6.0
 
 - Make `unique::Observable::subscriber_count` a regular associated function like
