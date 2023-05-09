@@ -1,4 +1,4 @@
-# unreleased
+# 0.6.0
 
 - Make `unique::Observable::subscriber_count` a regular associated function like
   all the others, not a method
