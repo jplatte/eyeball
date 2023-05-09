@@ -3,6 +3,8 @@
 - Remove `shared::Observable::try_into_unique`
   - It wasn't working as documented. It might be added back later. Please open
     an issue if you want to have it back.
+- Add `shared::Observable::downgrade` and `shared::WeakObservable`
+- Rename `shared::Observable::ref_count` to `strong_count`
 
 # 0.6.0
 

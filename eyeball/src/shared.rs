@@ -9,7 +9,7 @@ use std::{
     fmt,
     hash::Hash,
     ops,
-    sync::{Arc, RwLock, RwLockWriteGuard},
+    sync::{Arc, RwLock, RwLockWriteGuard, Weak},
 };
 
 use readlock::{SharedReadGuard, SharedReadLock};
@@ -173,10 +173,10 @@ impl<T> Observable<T> {
     /// on that.
     #[must_use]
     pub fn subscriber_count(&self) -> usize {
-        self.ref_count() - self.observable_count()
+        self.strong_count() - self.observable_count()
     }
 
-    /// Get the number of references to the inner value.
+    /// Get the number of strong references to the inner value.
     ///
     /// Every clone of the `Observable` and every associated `Subscriber` holds
     /// a reference, so this is the sum of all clones and subscribers.
@@ -188,8 +188,25 @@ impl<T> Observable<T> {
     /// `1`, as otherwise it could be incremented right after your call to this
     /// function, before you look at its result or do anything based on that.
     #[must_use]
-    pub fn ref_count(&self) -> usize {
+    pub fn strong_count(&self) -> usize {
         Arc::strong_count(&self.state)
+    }
+
+    /// Get the number of weak references to the inner value.
+    ///
+    /// Weak references are created using [`downgrade`][Self::downgrade] or by
+    /// cloning an existing weak reference.
+    #[must_use]
+    pub fn weak_count(&self) -> usize {
+        Arc::weak_count(&self.state)
+    }
+
+    /// Create a new [`WeakObservable`] reference to the same inner value.
+    pub fn downgrade(&self) -> WeakObservable<T> {
+        WeakObservable {
+            state: Arc::downgrade(&self.state),
+            _num_clones: Arc::downgrade(&self._num_clones),
+        }
     }
 }
 
@@ -212,6 +229,36 @@ impl<T> Drop for Observable<T> {
         if Arc::strong_count(&self._num_clones) == 1 {
             self.state.write().unwrap().close();
         }
+    }
+}
+
+/// A weak reference to a shared [`Observable`].
+///
+/// This type is only useful in niche cases, since one generally shouldn't nest
+/// interior-mutable types in observables, which includes observables
+/// themselves.
+///
+/// See [`std::sync::Weak`] for a general explanation of weak references.
+#[derive(Debug)]
+pub struct WeakObservable<T> {
+    state: Weak<RwLock<ObservableState<T>>>,
+    _num_clones: Weak<()>,
+}
+
+impl<T> WeakObservable<T> {
+    /// Attempt to upgrade the `WeakObservable` into an `Observable`.
+    ///
+    /// Returns `None` if the inner value has already been dropped.
+    pub fn upgrade(&self) -> Option<Observable<T>> {
+        let state = Weak::upgrade(&self.state)?;
+        let _num_clones = Weak::upgrade(&self._num_clones)?;
+        Some(Observable { state, _num_clones })
+    }
+}
+
+impl<T> Clone for WeakObservable<T> {
+    fn clone(&self) -> Self {
+        Self { state: self.state.clone(), _num_clones: self._num_clones.clone() }
     }
 }
 
