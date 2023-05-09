@@ -68,7 +68,7 @@
 //!
 //! [Observer pattern]: https://en.wikipedia.org/wiki/Observer_pattern
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![warn(missing_debug_implementations, missing_docs, rust_2018_idioms)]
+#![warn(missing_debug_implementations, missing_docs, rust_2018_idioms, unreachable_pub)]
 // https://github.com/rust-lang/rust-clippy/issues/10486
 #![allow(clippy::double_must_use)]
 

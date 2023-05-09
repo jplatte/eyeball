@@ -63,7 +63,7 @@ impl<T> ObservableState<T> {
         }
     }
 
-    pub fn set_if_hash_not_eq(&mut self, value: T) -> Option<T>
+    pub(crate) fn set_if_hash_not_eq(&mut self, value: T) -> Option<T>
     where
         T: Hash,
     {
@@ -74,12 +74,12 @@ impl<T> ObservableState<T> {
         }
     }
 
-    pub fn update(&mut self, f: impl FnOnce(&mut T)) {
+    pub(crate) fn update(&mut self, f: impl FnOnce(&mut T)) {
         f(&mut self.value);
         self.incr_version_and_wake();
     }
 
-    pub fn update_if(&mut self, f: impl FnOnce(&mut T) -> bool) {
+    pub(crate) fn update_if(&mut self, f: impl FnOnce(&mut T) -> bool) {
         if f(&mut self.value) {
             self.incr_version_and_wake();
         }
