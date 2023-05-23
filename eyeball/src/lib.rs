@@ -72,6 +72,8 @@
 // https://github.com/rust-lang/rust-clippy/issues/10486
 #![allow(clippy::double_must_use)]
 
+mod lazy_shared;
+mod lazy_subscriber;
 mod read_guard;
 pub mod shared;
 mod state;
@@ -79,6 +81,6 @@ pub mod subscriber;
 pub mod unique;
 
 #[doc(inline)]
-pub use read_guard::ObservableReadGuard;
+pub use read_guard::{LazyObservableReadGuard, ObservableReadGuard};
 #[doc(inline)]
-pub use subscriber::Subscriber;
+pub use subscriber::{LazySubscriber, Subscriber};

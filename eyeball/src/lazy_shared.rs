@@ -1,25 +1,14 @@
-//! This module defines a shared [`Observable`] type that is clonable, requires
-//! only `&` access to update its inner value but doesn't dereference to the
-//! inner value.
-//!
-//! Use this in situations where multiple locations in the code should be able
-//! to update the inner value.
-
 use std::{
     fmt,
     hash::Hash,
+    mem::MaybeUninit,
     ops,
     sync::{Arc, RwLock, RwLockWriteGuard, Weak},
 };
 
 use readlock::{SharedReadGuard, SharedReadLock};
 
-use crate::{state::ObservableState, ObservableReadGuard, Subscriber};
-
-pub use crate::lazy_shared::{
-    EmptyLazyObservableWriteGuard, InitializedLazyObservableWriteGuard, LazyObservable,
-    LazyObservableWriteGuard, WeakLazyObservable,
-};
+use crate::{state::ObservableState, LazyObservableReadGuard, LazySubscriber};
 
 /// A value whose changes will be broadcast to subscribers.
 ///
@@ -27,21 +16,23 @@ pub use crate::lazy_shared::{
 /// can be `Clone`d but does't dereference to `T`. Because of the latter, it has
 /// regular methods to access or modify the inner value.
 #[derive(Debug)]
-pub struct Observable<T> {
-    state: Arc<RwLock<ObservableState<T>>>,
+pub struct LazyObservable<T> {
+    state: Arc<RwLock<ObservableState<MaybeUninit<T>>>>,
     /// Ugly hack to track the amount of clones of this observable,
     /// *excluding subscribers*.
     _num_clones: Arc<()>,
 }
 
-impl<T> Observable<T> {
-    /// Create a new `Observable` with the given initial value.
+impl<T> LazyObservable<T> {
+    /// Create a new `LazyObservable`.
     #[must_use]
-    pub fn new(value: T) -> Self {
-        Self::from_inner(Arc::new(RwLock::new(ObservableState::new(value))))
+    pub fn new() -> Self {
+        Self::from_inner(Arc::new(RwLock::new(ObservableState::new(MaybeUninit::uninit()))))
     }
 
-    pub(crate) fn from_inner(state: Arc<RwLock<ObservableState<T>>>) -> Observable<T> {
+    pub(crate) fn from_inner(
+        state: Arc<RwLock<ObservableState<MaybeUninit<T>>>>,
+    ) -> LazyObservable<T> {
         Self { state, _num_clones: Arc::new(()) }
     }
 
@@ -53,30 +44,30 @@ impl<T> Observable<T> {
     ///
     /// See [`subscribe_reset`][Self::subscribe_reset] if you want to obtain a
     /// subscriber that immediately yields without any updates.
-    pub fn subscribe(&self) -> Subscriber<T> {
+    pub fn subscribe(&self) -> LazySubscriber<T> {
         let version = self.state.read().unwrap().version();
-        Subscriber::new(SharedReadLock::from_inner(Arc::clone(&self.state)), version)
+        LazySubscriber::new(SharedReadLock::from_inner(Arc::clone(&self.state)), version)
     }
 
     /// Obtain a new subscriber that immediately yields.
     ///
     /// `.subscribe_reset()` is equivalent to `.subscribe()` with a subsequent
-    /// call to [`.reset()`][Subscriber::reset] on the returned subscriber.
+    /// call to [`.reset()`][LazySubscriber::reset] on the returned subscriber.
     ///
     /// In contrast to [`subscribe`][Self::subscribe], calling `.next().await`
     /// or `.next_ref().await` on the returned subscriber before updating the
     /// inner value yields the current value instead of waiting. Further calls
     /// to either of the two will wait for updates.
-    pub fn subscribe_reset(&self) -> Subscriber<T> {
-        Subscriber::new(SharedReadLock::from_inner(Arc::clone(&self.state)), 0)
+    pub fn subscribe_reset(&self) -> LazySubscriber<T> {
+        LazySubscriber::new(SharedReadLock::from_inner(Arc::clone(&self.state)), 0)
     }
 
     /// Get a clone of the inner value.
-    pub fn get(&self) -> T
+    pub fn get(&self) -> Option<T>
     where
         T: Clone,
     {
-        self.state.read().unwrap().get().clone()
+        self.read().map(|lock| lock.clone())
     }
 
     /// Read the inner value.
@@ -87,8 +78,8 @@ impl<T> Observable<T> {
     /// the same `Observable`. Instead, call of of the `update_` methods, or
     /// if that doesn't fit your use case, call [`write`][Self::write] and
     /// update the value through the write guard it returns.
-    pub fn read(&self) -> ObservableReadGuard<'_, T> {
-        ObservableReadGuard::new(SharedReadGuard::from_inner(self.state.read().unwrap()))
+    pub fn read(&self) -> Option<LazyObservableReadGuard<'_, T>> {
+        LazyObservableReadGuard::new(SharedReadGuard::from_inner(self.state.read().unwrap()))
     }
 
     /// Get a write guard to the inner value.
@@ -96,14 +87,14 @@ impl<T> Observable<T> {
     /// This can be used to set a new value based on the existing value. The
     /// returned write guard dereferences (immutably) to the inner type, and has
     /// associated functions to update it.
-    pub fn write(&self) -> ObservableWriteGuard<'_, T> {
-        ObservableWriteGuard::new(self.state.write().unwrap())
+    pub fn write(&self) -> LazyObservableWriteGuard<'_, T> {
+        LazyObservableWriteGuard::new(self.state.write().unwrap())
     }
 
     /// Set the inner value to the given `value`, notify subscribers and return
     /// the previous value.
-    pub fn set(&self, value: T) -> T {
-        self.state.write().unwrap().set(value)
+    pub fn set(&self, value: T) -> Option<T> {
+        self.state.write().unwrap().init_or_set(value)
     }
 
     /// Set the inner value to the given `value` if it doesn't compare equal to
@@ -115,7 +106,7 @@ impl<T> Observable<T> {
     where
         T: PartialEq,
     {
-        self.state.write().unwrap().set_if_not_eq(value)
+        self.state.write().unwrap().init_or_set_if_not_eq(value)
     }
 
     /// Set the inner value to the given `value` if it has a different hash than
@@ -127,36 +118,18 @@ impl<T> Observable<T> {
     where
         T: Hash,
     {
-        self.state.write().unwrap().set_if_hash_not_eq(value)
+        self.state.write().unwrap().init_or_set_if_hash_not_eq(value)
     }
 
     /// Set the inner value to a `Default` instance of its type, notify
     /// subscribers and return the previous value.
     ///
     /// Shorthand for `observable.set(T::default())`.
-    pub fn take(&self) -> T
+    pub fn take(&self) -> Option<T>
     where
         T: Default,
     {
         self.set(T::default())
-    }
-
-    /// Update the inner value and notify subscribers.
-    ///
-    /// Note that even if the inner value is not actually changed by the
-    /// closure, subscribers will be notified as if it was. Use
-    /// [`update_if`][Self::update_if] if you want to conditionally mutate the
-    /// inner value.
-    pub fn update(&self, f: impl FnOnce(&mut T)) {
-        self.state.write().unwrap().update(f);
-    }
-
-    /// Maybe update the inner value and notify subscribers if it changed.
-    ///
-    /// The closure given to this function must return `true` if subscribers
-    /// should be notified of a change to the inner value.
-    pub fn update_if(&self, f: impl FnOnce(&mut T) -> bool) {
-        self.state.write().unwrap().update_if(f);
     }
 
     /// Get the number of `Observable` clones.
@@ -207,27 +180,27 @@ impl<T> Observable<T> {
     }
 
     /// Create a new [`WeakObservable`] reference to the same inner value.
-    pub fn downgrade(&self) -> WeakObservable<T> {
-        WeakObservable {
+    pub fn downgrade(&self) -> WeakLazyObservable<T> {
+        WeakLazyObservable {
             state: Arc::downgrade(&self.state),
             _num_clones: Arc::downgrade(&self._num_clones),
         }
     }
 }
 
-impl<T> Clone for Observable<T> {
+impl<T> Clone for LazyObservable<T> {
     fn clone(&self) -> Self {
         Self { state: self.state.clone(), _num_clones: self._num_clones.clone() }
     }
 }
 
-impl<T: Default> Default for Observable<T> {
+impl<T> Default for LazyObservable<T> {
     fn default() -> Self {
-        Self::new(T::default())
+        Self::new()
     }
 }
 
-impl<T> Drop for Observable<T> {
+impl<T> Drop for LazyObservable<T> {
     fn drop(&mut self) {
         // Only close the state if there are no other clones of this
         // `Observable`.
@@ -245,23 +218,23 @@ impl<T> Drop for Observable<T> {
 ///
 /// See [`std::sync::Weak`] for a general explanation of weak references.
 #[derive(Debug)]
-pub struct WeakObservable<T> {
-    state: Weak<RwLock<ObservableState<T>>>,
+pub struct WeakLazyObservable<T> {
+    state: Weak<RwLock<ObservableState<MaybeUninit<T>>>>,
     _num_clones: Weak<()>,
 }
 
-impl<T> WeakObservable<T> {
+impl<T> WeakLazyObservable<T> {
     /// Attempt to upgrade the `WeakObservable` into an `Observable`.
     ///
     /// Returns `None` if the inner value has already been dropped.
-    pub fn upgrade(&self) -> Option<Observable<T>> {
+    pub fn upgrade(&self) -> Option<LazyObservable<T>> {
         let state = Weak::upgrade(&self.state)?;
         let _num_clones = Weak::upgrade(&self._num_clones)?;
-        Some(Observable { state, _num_clones })
+        Some(LazyObservable { state, _num_clones })
     }
 }
 
-impl<T> Clone for WeakObservable<T> {
+impl<T> Clone for WeakLazyObservable<T> {
     fn clone(&self) -> Self {
         Self { state: self.state.clone(), _num_clones: self._num_clones.clone() }
     }
@@ -273,19 +246,33 @@ impl<T> Clone for WeakObservable<T> {
 /// [`Observable`] is locked and can not be updated except through that guard.
 #[must_use]
 #[clippy::has_significant_drop]
-pub struct ObservableWriteGuard<'a, T> {
-    inner: RwLockWriteGuard<'a, ObservableState<T>>,
+pub enum LazyObservableWriteGuard<'a, T> {
+    /// The observable hasn't been initialized yet.
+    Empty(EmptyLazyObservableWriteGuard<'a, T>),
+    /// The observable is initialized, i.e. holds a value.
+    Initialized(InitializedLazyObservableWriteGuard<'a, T>),
 }
 
-impl<'a, T> ObservableWriteGuard<'a, T> {
-    fn new(inner: RwLockWriteGuard<'a, ObservableState<T>>) -> Self {
-        Self { inner }
+impl<'a, T> LazyObservableWriteGuard<'a, T> {
+    fn new(inner: RwLockWriteGuard<'a, ObservableState<MaybeUninit<T>>>) -> Self {
+        if inner.is_initialized() {
+            Self::Empty(EmptyLazyObservableWriteGuard { inner })
+        } else {
+            Self::Initialized(InitializedLazyObservableWriteGuard { inner })
+        }
+    }
+
+    fn inner_mut(&mut self) -> &mut RwLockWriteGuard<'a, ObservableState<MaybeUninit<T>>> {
+        match self {
+            Self::Empty(guard) => &mut guard.inner,
+            Self::Initialized(guard) => &mut guard.inner,
+        }
     }
 
     /// Set the inner value to the given `value`, notify subscribers and return
-    /// the previous value.
-    pub fn set(this: &mut Self, value: T) -> T {
-        this.inner.set(value)
+    /// the previous value, if any.
+    pub fn set(this: &mut Self, value: T) -> Option<T> {
+        this.inner_mut().init_or_set(value)
     }
 
     /// Set the inner value to the given `value` if it doesn't compare equal to
@@ -297,7 +284,7 @@ impl<'a, T> ObservableWriteGuard<'a, T> {
     where
         T: PartialEq,
     {
-        this.inner.set_if_not_eq(value)
+        this.inner_mut().init_or_set_if_not_eq(value)
     }
 
     /// Set the inner value to the given `value` if it has a different hash than
@@ -309,49 +296,96 @@ impl<'a, T> ObservableWriteGuard<'a, T> {
     where
         T: Hash,
     {
-        this.inner.set_if_hash_not_eq(value)
-    }
-
-    /// Set the inner value to a `Default` instance of its type, notify
-    /// subscribers and return the previous value.
-    ///
-    /// Shorthand for `Observable::set(this, T::default())`.
-    pub fn take(this: &mut Self) -> T
-    where
-        T: Default,
-    {
-        Self::set(this, T::default())
-    }
-
-    /// Update the inner value and notify subscribers.
-    ///
-    /// Note that even if the inner value is not actually changed by the
-    /// closure, subscribers will be notified as if it was. Use
-    /// [`update_if`][Self::update_if] if you want to conditionally mutate the
-    /// inner value.
-    pub fn update(this: &mut Self, f: impl FnOnce(&mut T)) {
-        this.inner.update(f);
-    }
-
-    /// Maybe update the inner value and notify subscribers if it changed.
-    ///
-    /// The closure given to this function must return `true` if subscribers
-    /// should be notified of a change to the inner value.
-    pub fn update_if(this: &mut Self, f: impl FnOnce(&mut T) -> bool) {
-        this.inner.update_if(f);
+        this.inner_mut().init_or_set_if_hash_not_eq(value)
     }
 }
 
-impl<T: fmt::Debug> fmt::Debug for ObservableWriteGuard<'_, T> {
+impl<T: fmt::Debug> fmt::Debug for LazyObservableWriteGuard<'_, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            LazyObservableWriteGuard::Empty(guard) => guard.fmt(f),
+            LazyObservableWriteGuard::Initialized(guard) => guard.fmt(f),
+        }
+    }
+}
+
+/// A write guard for a lazy observable that hasn't been initialized yet.
+///
+/// Note that as long as an `ObservableWriteGuard` is kept alive, the associated
+/// [`Observable`] is locked and can not be updated except through that guard.
+#[must_use]
+#[clippy::has_significant_drop]
+pub struct EmptyLazyObservableWriteGuard<'a, T> {
+    inner: RwLockWriteGuard<'a, ObservableState<MaybeUninit<T>>>,
+}
+
+impl<'a, T> EmptyLazyObservableWriteGuard<'a, T> {
+    /// Set the inner value to the given `value` and notify subscribers.
+    pub fn set(mut self, value: T) -> InitializedLazyObservableWriteGuard<'a, T> {
+        self.inner.init_or_set(value);
+        InitializedLazyObservableWriteGuard { inner: self.inner }
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for EmptyLazyObservableWriteGuard<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.inner.fmt(f)
     }
 }
 
-impl<T> ops::Deref for ObservableWriteGuard<'_, T> {
+/// A write guard for a lazy observable that has been initialized.
+///
+/// Note that as long as an `ObservableWriteGuard` is kept alive, the associated
+/// [`Observable`] is locked and can not be updated except through that guard.
+#[must_use]
+#[clippy::has_significant_drop]
+pub struct InitializedLazyObservableWriteGuard<'a, T> {
+    inner: RwLockWriteGuard<'a, ObservableState<MaybeUninit<T>>>,
+}
+
+impl<'a, T> InitializedLazyObservableWriteGuard<'a, T> {
+    /// Set the inner value to the given `value`, notify subscribers and return
+    /// the previous value.
+    pub fn set(this: &mut Self, value: T) -> T {
+        this.inner.init_or_set(value).unwrap()
+    }
+
+    /// Set the inner value to the given `value` if it doesn't compare equal to
+    /// the existing value.
+    ///
+    /// If the inner value is set, subscribers are notified and
+    /// `Some(previous_value)` is returned. Otherwise, `None` is returned.
+    pub fn set_if_not_eq(this: &mut Self, value: T) -> T
+    where
+        T: PartialEq,
+    {
+        this.inner.init_or_set_if_not_eq(value).unwrap()
+    }
+
+    /// Set the inner value to the given `value` if it has a different hash than
+    /// the existing value.
+    ///
+    /// If the inner value is set, subscribers are notified and
+    /// `Some(previous_value)` is returned. Otherwise, `None` is returned.
+    pub fn set_if_hash_not_eq(this: &mut Self, value: T) -> T
+    where
+        T: Hash,
+    {
+        this.inner.init_or_set_if_hash_not_eq(value).unwrap()
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for InitializedLazyObservableWriteGuard<'_, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.inner.fmt(f)
+    }
+}
+
+impl<T> ops::Deref for InitializedLazyObservableWriteGuard<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        self.inner.get()
+        // SAFETY: This type is only ever created with initialized inner state
+        unsafe { self.inner.get().assume_init_ref() }
     }
 }

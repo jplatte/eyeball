@@ -1,6 +1,6 @@
 use std::{
     hash::{Hash, Hasher},
-    mem,
+    mem::{self, MaybeUninit},
     sync::RwLock,
     task::Waker,
 };
@@ -95,6 +95,69 @@ impl<T> ObservableState<T> {
     fn incr_version_and_wake(&mut self) {
         self.version += 1;
         wake(self.wakers.get_mut().unwrap().drain(..));
+    }
+}
+
+impl<T> ObservableState<MaybeUninit<T>> {
+    /// Whether this state is initialized.
+    pub(crate) fn is_initialized(&self) -> bool {
+        // If the version is larger than 1, that means it was written before
+        // and it is valid to move it out as long a value is put back in.
+        self.version > 1
+    }
+
+    fn write(&mut self, value: T) {
+        self.value.write(value);
+        self.incr_version_and_wake();
+    }
+
+    /// Get a reference to the inner value, if it has been initialized.
+    pub(crate) fn get_lazy(&self) -> Option<&T> {
+        self.is_initialized().then(|| unsafe { self.value.assume_init_ref() })
+    }
+
+    pub(crate) fn init_or_set(&mut self, value: T) -> Option<T> {
+        let old_value = self.is_initialized().then(|| {
+            // SAFETY: `self.value.write(value);` below re-initializes
+            // and both functions never panic.
+            unsafe { self.value.assume_init_read() }
+        });
+        self.write(value);
+        old_value
+    }
+
+    fn init_or_set_if(&mut self, value: T, f: impl FnOnce(&T, &T) -> bool) -> Option<T> {
+        if self.is_initialized() {
+            // SAFETY: Value is initialized, we don't use the reference after
+            // moving out of `self.value` using `assume_init_read`.
+            let prev_value = unsafe { self.value.assume_init_ref() };
+            if f(prev_value, &value) {
+                // SAFETY: `self.value.write(value);` below re-initializes
+                // and both functions never panic.
+                let old_value = unsafe { self.value.assume_init_read() };
+                self.write(value);
+                Some(old_value)
+            } else {
+                None
+            }
+        } else {
+            self.write(value);
+            None
+        }
+    }
+
+    pub(crate) fn init_or_set_if_not_eq(&mut self, value: T) -> Option<T>
+    where
+        T: PartialEq,
+    {
+        self.init_or_set_if(value, |a, b| a != b)
+    }
+
+    pub(crate) fn init_or_set_if_hash_not_eq(&mut self, value: T) -> Option<T>
+    where
+        T: Hash,
+    {
+        self.init_or_set_if(value, |a, b| hash(a) != hash(b))
     }
 }
 
