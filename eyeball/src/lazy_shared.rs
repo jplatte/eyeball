@@ -271,8 +271,8 @@ impl<'a, T> LazyObservableWriteGuard<'a, T> {
 
     /// Set the inner value to the given `value`, notify subscribers and return
     /// the previous value, if any.
-    pub fn set(this: &mut Self, value: T) -> Option<T> {
-        this.inner_mut().init_or_set(value)
+    pub fn set(&mut self, value: T) -> Option<T> {
+        self.inner_mut().init_or_set(value)
     }
 
     /// Set the inner value to the given `value` if it doesn't compare equal to
@@ -280,11 +280,11 @@ impl<'a, T> LazyObservableWriteGuard<'a, T> {
     ///
     /// If the inner value is set, subscribers are notified and
     /// `Some(previous_value)` is returned. Otherwise, `None` is returned.
-    pub fn set_if_not_eq(this: &mut Self, value: T) -> Option<T>
+    pub fn set_if_not_eq(&mut self, value: T) -> Option<T>
     where
         T: PartialEq,
     {
-        this.inner_mut().init_or_set_if_not_eq(value)
+        self.inner_mut().init_or_set_if_not_eq(value)
     }
 
     /// Set the inner value to the given `value` if it has a different hash than
@@ -292,11 +292,11 @@ impl<'a, T> LazyObservableWriteGuard<'a, T> {
     ///
     /// If the inner value is set, subscribers are notified and
     /// `Some(previous_value)` is returned. Otherwise, `None` is returned.
-    pub fn set_if_hash_not_eq(this: &mut Self, value: T) -> Option<T>
+    pub fn set_if_hash_not_eq(&mut self, value: T) -> Option<T>
     where
         T: Hash,
     {
-        this.inner_mut().init_or_set_if_hash_not_eq(value)
+        self.inner_mut().init_or_set_if_hash_not_eq(value)
     }
 }
 
