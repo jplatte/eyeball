@@ -1,0 +1,19 @@
+[package]
+name = "eyeball-im-util"
+version = "0.1.0"
+edition = "2021"
+license = "MPL-2.0"
+description = "Helpful utilities for `eyeball-im`."
+repository = "https://github.com/jplatte/eyeball"
+
+[package.metadata.docs.rs]
+all-features = true
+
+[dependencies]
+eyeball-im = { version = "0.2.0", path = "../eyeball-im" }
+futures-core.workspace = true
+imbl = "2.0.0"
+pin-project-lite = "0.2.9"
+
+[dev-dependencies]
+stream_assert.workspace = true
