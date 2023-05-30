@@ -45,7 +45,9 @@ jobs:
         with:
           components: miri
       - uses: Swatinem/rust-cache@v2
-      - run: cargo miri test
+      # Most eyeball-im-util tests are failing right now, due to Vector::retain
+      # usage which might be unsound: https://github.com/jneem/imbl/issues/59
+      - run: cargo miri test --workspace --exclude eyeball-im-util
 
   clippy:
     name: Run clippy (Rust nightly)
