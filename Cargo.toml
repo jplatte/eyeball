@@ -5,6 +5,7 @@ members = ["eyeball", "eyeball-im"]
 assert_matches = "1.5.0"
 futures-core = "0.3.26"
 readlock = "0.1.5"
+stream_assert = "0.1.0"
 tokio = { version = "1.25.0", features = ["sync"] }
 tokio-stream = { version = "0.1.11", default-features = false, features = ["sync"] }
 tracing = { version = "0.1.37", default-features = false, features = ["std"] }
