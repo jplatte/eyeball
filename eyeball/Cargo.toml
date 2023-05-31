@@ -6,10 +6,6 @@ license = "MPL-2.0"
 description = "Add observability to your Rust types!"
 repository = "https://github.com/jplatte/eyeball"
 
-[package.metadata.docs.rs]
-all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
-
 [dependencies]
 futures-core.workspace = true
 readlock.workspace = true
