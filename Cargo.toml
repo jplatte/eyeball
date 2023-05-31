@@ -12,8 +12,11 @@ tokio-stream = { version = "0.1.11", default-features = false, features = ["sync
 tracing = { version = "0.1.37", default-features = false, features = ["std"] }
 
 [workspace.lints.rust]
+missing_debug_implementations = "warn"
+missing_docs = "warn"
 rust_2018_idioms = "warn"
 semicolon_in_expressions_from_macros = "warn"
+unreachable_pub = "warn"
 unused_import_braces = "warn"
 unused_qualifications = "warn"
 

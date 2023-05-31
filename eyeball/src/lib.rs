@@ -67,9 +67,6 @@
 //! - `tracing`: Emit [tracing] events when updates are sent out
 //!
 //! [Observer pattern]: https://en.wikipedia.org/wiki/Observer_pattern
-#![warn(missing_debug_implementations, missing_docs, rust_2018_idioms, unreachable_pub)]
-// https://github.com/rust-lang/rust-clippy/issues/10486
-#![allow(clippy::double_must_use)]
 
 mod read_guard;
 pub mod shared;
