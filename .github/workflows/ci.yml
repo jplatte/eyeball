@@ -45,9 +45,11 @@ jobs:
         with:
           components: miri
       - uses: Swatinem/rust-cache@v2
-      # Most eyeball-im-util tests are failing right now, due to Vector::retain
-      # usage which might be unsound: https://github.com/jneem/imbl/issues/59
-      - run: cargo miri test --workspace --exclude eyeball-im-util
+      - run: cargo miri test
+        env:
+          # Enable Tree Borrows, Stacked Borrows is weirdly restrictive
+          # https://github.com/jneem/imbl/issues/59#issuecomment-1569746186
+          MIRIFLAGS: "-Zmiri-tree-borrows"
 
   clippy:
     name: Run clippy (Rust nightly)
