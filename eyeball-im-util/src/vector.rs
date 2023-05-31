@@ -9,10 +9,15 @@ use eyeball_im::{ObservableVector, Vector, VectorDiff, VectorSubscriber};
 use futures_core::Stream;
 use pin_project_lite::pin_project;
 
+/// Extension trait for [`Vector`].
 pub trait VectorExt<T>
 where
     T: Clone + Send + Sync + 'static,
 {
+    /// Obtain a new subscriber that filters items by the given filter function.
+    ///
+    /// Returns a filtered version of the current vector, and a subscriber to
+    /// get updates through.
     fn subscribe_filtered<F>(&self, filter: F) -> (Vector<T>, FilteredVectorSubscriber<T, F>)
     where
         F: Fn(&T) -> bool + Unpin;
@@ -48,6 +53,10 @@ where
 }
 
 pin_project! {
+    /// A [`VectorSubscriber`] that presents a filtered view of the underlying
+    /// [`ObservableVector`]s items.
+    ///
+    /// Created through [`VectorExt::subscribe_filtered`].
     pub struct FilteredVectorSubscriber<T, F> {
         #[pin]
         inner: VectorSubscriber<T>,
