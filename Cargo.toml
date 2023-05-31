@@ -10,3 +10,27 @@ stream_assert = "0.1.0"
 tokio = { version = "1.25.0", features = ["sync"] }
 tokio-stream = { version = "0.1.11", default-features = false, features = ["sync"] }
 tracing = { version = "0.1.37", default-features = false, features = ["std"] }
+
+[workspace.lints.rust]
+rust_2018_idioms = "warn"
+semicolon_in_expressions_from_macros = "warn"
+unused_import_braces = "warn"
+unused_qualifications = "warn"
+
+[workspace.lints.clippy]
+branches_sharing_code = "warn"
+cloned_instead_of_copied = "warn"
+dbg_macro = "warn"
+empty_line_after_outer_attr = "warn"
+inefficient_to_string = "warn"
+macro_use_imports = "warn"
+map_flatten = "warn"
+mod_module_files = "warn"
+mut_mut = "warn"
+nonstandard_macro_braces = "warn"
+semicolon_if_nothing_returned = "warn"
+str_to_string = "warn"
+todo = "warn"
+unreadable_literal = "warn"
+unseparated_literal_suffix = "warn"
+wildcard_imports = "warn"

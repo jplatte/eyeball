@@ -28,3 +28,6 @@ __bench = ["dep:criterion", "tokio/rt-multi-thread"]
 name = "set_a_lot"
 harness = false
 required-features = ["__bench"]
+
+[lints]
+workspace = true
