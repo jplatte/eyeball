@@ -18,7 +18,7 @@ where
     ///
     /// Returns a filtered version of the current vector, and a subscriber to
     /// get updates through.
-    fn subscribe_filtered<F>(&self, filter: F) -> (Vector<T>, FilteredVectorSubscriber<T, F>)
+    fn subscribe_filter<F>(&self, filter: F) -> (Vector<T>, FilterVectorSubscriber<T, F>)
     where
         F: Fn(&T) -> bool + Unpin;
 }
@@ -27,7 +27,7 @@ impl<T> VectorExt<T> for ObservableVector<T>
 where
     T: Clone + Send + Sync + 'static,
 {
-    fn subscribe_filtered<F>(&self, filter: F) -> (Vector<T>, FilteredVectorSubscriber<T, F>)
+    fn subscribe_filter<F>(&self, filter: F) -> (Vector<T>, FilterVectorSubscriber<T, F>)
     where
         F: Fn(&T) -> bool + Unpin,
     {
@@ -46,7 +46,7 @@ where
 
         let inner = self.subscribe();
         let original_len = self.len();
-        let sub = FilteredVectorSubscriber { inner, filter, filtered_indices, original_len };
+        let sub = FilterVectorSubscriber { inner, filter, filtered_indices, original_len };
 
         (v, sub)
     }
@@ -57,7 +57,7 @@ pin_project! {
     /// [`ObservableVector`]s items.
     ///
     /// Created through [`VectorExt::subscribe_filtered`].
-    pub struct FilteredVectorSubscriber<T, F> {
+    pub struct FilterVectorSubscriber<T, F> {
         #[pin]
         inner: VectorSubscriber<T>,
         filter: F,
@@ -66,7 +66,7 @@ pin_project! {
     }
 }
 
-impl<T, F> FilteredVectorSubscriber<T, F>
+impl<T, F> FilterVectorSubscriber<T, F>
 where
     T: Clone + Send + Sync + 'static,
     F: Fn(&T) -> bool,
@@ -199,7 +199,7 @@ where
     }
 }
 
-impl<T: Clone + Send + Sync + 'static, F> Stream for FilteredVectorSubscriber<T, F>
+impl<T: Clone + Send + Sync + 'static, F> Stream for FilterVectorSubscriber<T, F>
 where
     F: Fn(&T) -> bool + Unpin,
 {

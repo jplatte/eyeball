@@ -4,4 +4,4 @@
 
 mod vector;
 
-pub use vector::{FilteredVectorSubscriber, VectorExt};
+pub use vector::{FilterVectorSubscriber, VectorExt};
