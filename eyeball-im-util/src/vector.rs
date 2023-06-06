@@ -20,7 +20,7 @@ where
     /// get updates through.
     fn subscribe_filter<F>(&self, filter: F) -> (Vector<T>, FilterVectorSubscriber<T, F>)
     where
-        F: Fn(&T) -> bool + Unpin;
+        F: Fn(&T) -> bool;
 
     /// Obtain a new subscriber that filters and maps items with the given
     /// function.
@@ -30,7 +30,7 @@ where
     fn subscribe_filter_map<U, F>(&self, filter: F) -> (Vector<U>, FilterMapVectorSubscriber<T, F>)
     where
         U: Clone,
-        F: Fn(T) -> Option<U> + Unpin;
+        F: Fn(T) -> Option<U>;
 }
 
 impl<T> VectorExt<T> for ObservableVector<T>
@@ -39,7 +39,7 @@ where
 {
     fn subscribe_filter<F>(&self, filter: F) -> (Vector<T>, FilterVectorSubscriber<T, F>)
     where
-        F: Fn(&T) -> bool + Unpin,
+        F: Fn(&T) -> bool,
     {
         let mut filtered_indices = VecDeque::new();
         let mut v = (*self).clone();
@@ -65,7 +65,7 @@ where
     fn subscribe_filter_map<U, F>(&self, filter: F) -> (Vector<U>, FilterMapVectorSubscriber<T, F>)
     where
         U: Clone,
-        F: Fn(T) -> Option<U> + Unpin,
+        F: Fn(T) -> Option<U>,
     {
         let (v, filtered_indices) = self
             .iter()
@@ -123,7 +123,7 @@ where
 {
     fn append_filter<F>(mut self: Pin<&mut Self>, mut values: Vector<T>, f: &F) -> Option<Vector<T>>
     where
-        F: Fn(&T) -> bool + Unpin,
+        F: Fn(&T) -> bool,
     {
         let mut original_idx = self.original_len;
         self.original_len += values.len();
@@ -146,7 +146,7 @@ where
     ) -> Option<Vector<U>>
     where
         U: Clone,
-        F: Fn(T) -> Option<U> + Unpin,
+        F: Fn(T) -> Option<U>,
     {
         let mut original_idx = self.original_len;
         self.original_len += values.len();
@@ -171,7 +171,7 @@ where
         f: &F,
     ) -> Option<VectorDiff<T>>
     where
-        F: Fn(&T) -> bool + Unpin,
+        F: Fn(&T) -> bool,
     {
         self.append_filter(values, f).map(|values| VectorDiff::Append { values })
     }
@@ -183,7 +183,7 @@ where
     ) -> Option<VectorDiff<U>>
     where
         U: Clone,
-        F: Fn(T) -> Option<U> + Unpin,
+        F: Fn(T) -> Option<U>,
     {
         self.append_filter_map(values, f).map(|values| VectorDiff::Append { values })
     }
@@ -197,7 +197,7 @@ where
     fn handle_push_front<U, F>(mut self: Pin<&mut Self>, value: T, f: &F) -> Option<VectorDiff<U>>
     where
         U: Clone,
-        F: Fn(T) -> Option<U> + Unpin,
+        F: Fn(T) -> Option<U>,
     {
         self.original_len += 1;
         for idx in &mut self.filtered_indices {
@@ -213,7 +213,7 @@ where
     fn handle_push_back<U, F>(mut self: Pin<&mut Self>, value: T, f: &F) -> Option<VectorDiff<U>>
     where
         U: Clone,
-        F: Fn(T) -> Option<U> + Unpin,
+        F: Fn(T) -> Option<U>,
     {
         let original_idx = self.original_len;
         self.original_len += 1;
@@ -252,7 +252,7 @@ where
     ) -> Option<VectorDiff<U>>
     where
         U: Clone,
-        F: Fn(T) -> Option<U> + Unpin,
+        F: Fn(T) -> Option<U>,
     {
         let original_idx = index;
         let index = self.filtered_indices.partition_point(|&i| i < original_idx);
@@ -274,7 +274,7 @@ where
     ) -> Option<VectorDiff<U>>
     where
         U: Clone,
-        F: Fn(T) -> Option<U> + Unpin,
+        F: Fn(T) -> Option<U>,
     {
         let original_idx = index;
         let new_value = f(value);
@@ -322,7 +322,7 @@ where
         f: &F,
     ) -> Option<VectorDiff<T>>
     where
-        F: Fn(&T) -> bool + Unpin,
+        F: Fn(&T) -> bool,
     {
         self.filtered_indices.clear();
         self.original_len = 0;
@@ -336,7 +336,7 @@ where
     ) -> Option<VectorDiff<U>>
     where
         U: Clone,
-        F: Fn(T) -> Option<U> + Unpin,
+        F: Fn(T) -> Option<U>,
     {
         self.filtered_indices.clear();
         self.original_len = 0;
@@ -349,7 +349,7 @@ where
         cx: &mut task::Context<'_>,
     ) -> Poll<Option<VectorDiff<T>>>
     where
-        F: Fn(&T) -> bool + Unpin,
+        F: Fn(&T) -> bool,
     {
         // Transform filter function into filter_map function.
         let f2 = |value| f(&value).then_some(value);
@@ -385,7 +385,7 @@ where
     ) -> Poll<Option<VectorDiff<U>>>
     where
         U: Clone,
-        F: Fn(T) -> Option<U> + Unpin,
+        F: Fn(T) -> Option<U>,
     {
         loop {
             let Some(diff) = ready!(self.as_mut().project().inner.poll_next(cx)) else {
@@ -415,7 +415,7 @@ where
 
 impl<T: Clone + Send + Sync + 'static, F> Stream for FilterVectorSubscriber<T, F>
 where
-    F: Fn(&T) -> bool + Unpin,
+    F: Fn(&T) -> bool,
 {
     type Item = VectorDiff<T>;
 
@@ -428,7 +428,7 @@ where
 impl<T: Clone + Send + Sync + 'static, U: Clone, F> Stream for FilterMapVectorSubscriber<T, F>
 where
     U: Clone,
-    F: Fn(T) -> Option<U> + Unpin,
+    F: Fn(T) -> Option<U>,
 {
     type Item = VectorDiff<U>;
 
