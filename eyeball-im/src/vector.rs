@@ -309,3 +309,26 @@ pub enum VectorDiff<T> {
         values: Vector<T>,
     },
 }
+
+impl<T: Clone> VectorDiff<T> {
+    /// Transform `VectorDiff<T>` into `VectorDiff<U>` by applying the given
+    /// function to any contained items.
+    pub fn map<U: Clone>(self, mut f: impl FnMut(T) -> U) -> VectorDiff<U> {
+        match self {
+            VectorDiff::Append { values } => VectorDiff::Append { values: vector_map(values, f) },
+            VectorDiff::Clear => VectorDiff::Clear,
+            VectorDiff::PushFront { value } => VectorDiff::PushFront { value: f(value) },
+            VectorDiff::PushBack { value } => VectorDiff::PushBack { value: f(value) },
+            VectorDiff::PopFront => VectorDiff::PopFront,
+            VectorDiff::PopBack => VectorDiff::PopBack,
+            VectorDiff::Insert { index, value } => VectorDiff::Insert { index, value: f(value) },
+            VectorDiff::Set { index, value } => VectorDiff::Set { index, value: f(value) },
+            VectorDiff::Remove { index } => VectorDiff::Remove { index },
+            VectorDiff::Reset { values } => VectorDiff::Reset { values: vector_map(values, f) },
+        }
+    }
+}
+
+fn vector_map<T: Clone, U: Clone>(v: Vector<T>, f: impl FnMut(T) -> U) -> Vector<U> {
+    v.into_iter().map(f).collect()
+}

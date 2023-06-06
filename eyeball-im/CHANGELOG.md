@@ -1,3 +1,7 @@
+# unreleased
+
+- Add `VectorDiff::map`
+
 # 0.2.0
 
 - Switch from the unmaintained `im` crate to the maintained fork `imbl`
