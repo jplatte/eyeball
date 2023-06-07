@@ -1,4 +1,4 @@
-# unreleased
+# 0.2.1
 
 - Export `FilterMapVectorSubscriber` from the crate root
 
