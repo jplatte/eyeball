@@ -9,7 +9,7 @@ use eyeball_im::{ObservableVector, Vector, VectorDiff, VectorSubscriber};
 use futures_core::Stream;
 use pin_project_lite::pin_project;
 
-/// Extension trait for [`Vector`].
+/// Extension trait for [`ObservableVector`].
 pub trait VectorExt<T>
 where
     T: Clone + Send + Sync + 'static,
