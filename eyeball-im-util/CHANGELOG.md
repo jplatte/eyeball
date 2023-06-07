@@ -1,3 +1,7 @@
+# unreleased
+
+- Export `FilterMapVectorSubscriber` from the crate root
+
 # 0.2.0
 
 - Rename `subscribe_filtered` to `subscribe_filter`
