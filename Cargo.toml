@@ -9,7 +9,7 @@ futures-util = { version = "0.3.26", default-features = false }
 readlock = "0.1.5"
 stream_assert = "0.1.0"
 tokio = { version = "1.25.0", features = ["sync"] }
-tokio-stream = { version = "0.1.11", default-features = false, features = ["sync"] }
+tokio-util = "0.7.8"
 tracing = { version = "0.1.37", default-features = false, features = ["std"] }
 
 [workspace.lints.rust]

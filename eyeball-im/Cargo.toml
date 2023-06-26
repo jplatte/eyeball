@@ -13,7 +13,7 @@ all-features = true
 futures-core.workspace = true
 imbl = "2.0.0"
 tokio.workspace = true
-tokio-stream.workspace = true
+tokio-util.workspace = true
 tracing = { workspace = true, optional = true }
 
 [dev-dependencies]

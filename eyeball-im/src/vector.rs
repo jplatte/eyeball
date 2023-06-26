@@ -1,13 +1,13 @@
 use std::{
     fmt, ops,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 
 use futures_core::Stream;
 use imbl::Vector;
-use tokio::sync::broadcast::{self, Sender};
-use tokio_stream::wrappers::{errors::BroadcastStreamRecvError, BroadcastStream};
+use tokio::sync::broadcast::{self, error::RecvError, Receiver, Sender};
+use tokio_util::sync::ReusableBoxFuture;
 
 /// An ordered list of elements that broadcasts any changes made to it.
 pub struct ObservableVector<T> {
@@ -57,8 +57,8 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
     /// operation. Otherwise, the values could be altered in between the
     /// reading of the values and subscribing to changes.
     pub fn subscribe(&self) -> VectorSubscriber<T> {
-        let stream = BroadcastStream::new(self.sender.subscribe());
-        VectorSubscriber::new(stream)
+        let rx = self.sender.subscribe();
+        VectorSubscriber::new(rx)
     }
 
     /// Append the given elements at the end of the `Vector` and notify
@@ -218,12 +218,13 @@ struct BroadcastMessage<T> {
 /// methods).
 #[derive(Debug)]
 pub struct VectorSubscriber<T> {
-    inner: BroadcastStream<BroadcastMessage<T>>,
+    inner: ReusableBoxFuture<'static, SubscriberFutureReturn<BroadcastMessage<T>>>,
     must_reset: bool,
 }
 
-impl<T> VectorSubscriber<T> {
-    const fn new(inner: BroadcastStream<BroadcastMessage<T>>) -> Self {
+impl<T: Clone + Send + Sync + 'static> VectorSubscriber<T> {
+    fn new(rx: Receiver<BroadcastMessage<T>>) -> Self {
+        let inner = ReusableBoxFuture::new(make_future(rx));
         Self { inner, must_reset: false }
     }
 }
@@ -233,8 +234,11 @@ impl<T: Clone + Send + Sync + 'static> Stream for VectorSubscriber<T> {
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
-            let poll = match Pin::new(&mut self.inner).poll_next(cx) {
-                Poll::Ready(Some(Ok(msg))) => {
+            let (result, rx) = ready!(self.inner.poll(cx));
+            self.inner.set(make_future(rx));
+
+            let poll = match result {
+                Ok(msg) => {
                     let diff = if self.must_reset {
                         self.must_reset = false;
                         VectorDiff::Reset { values: msg.state }
@@ -243,17 +247,23 @@ impl<T: Clone + Send + Sync + 'static> Stream for VectorSubscriber<T> {
                     };
                     Poll::Ready(Some(diff))
                 }
-                Poll::Ready(None) => Poll::Ready(None),
-                Poll::Ready(Some(Err(BroadcastStreamRecvError::Lagged(_)))) => {
+                Err(RecvError::Closed) => Poll::Ready(None),
+                Err(RecvError::Lagged(_)) => {
                     self.must_reset = true;
                     continue;
                 }
-                Poll::Pending => Poll::Pending,
             };
 
             return poll;
         }
     }
+}
+
+type SubscriberFutureReturn<T> = (Result<T, RecvError>, Receiver<T>);
+
+async fn make_future<T: Clone>(mut rx: Receiver<T>) -> SubscriberFutureReturn<T> {
+    let result = rx.recv().await;
+    (result, rx)
 }
 
 /// A change to an [`ObservableVector`].
