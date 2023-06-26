@@ -1,5 +1,5 @@
 use imbl::{vector, Vector};
-use stream_assert::assert_next_eq;
+use stream_assert::{assert_next_eq, assert_pending};
 
 use eyeball_im::{ObservableVector, VectorDiff};
 
@@ -28,6 +28,9 @@ fn lag2() {
     ob.push_back(0);
     ob.append(vector![1, 2]);
     ob.push_back(3);
-    assert_next_eq!(sub, VectorDiff::Reset { values: vector![0, 1, 2] });
-    assert_next_eq!(sub, VectorDiff::PushBack { value: 3 });
+
+    // Reset takes us immediately to the latest state, no updates afterwards
+    // without modifying the vector again.
+    assert_next_eq!(sub, VectorDiff::Reset { values: vector![0, 1, 2, 3] });
+    assert_pending!(sub);
 }
