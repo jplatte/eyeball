@@ -68,12 +68,18 @@
 //!
 //! [Observer pattern]: https://en.wikipedia.org/wiki/Observer_pattern
 
+mod lock;
 mod read_guard;
 pub mod shared;
 mod state;
 pub mod subscriber;
 pub mod unique;
 
+#[cfg(feature = "async-lock")]
+#[doc(inline)]
+pub use lock::AsyncLock;
+#[doc(inline)]
+pub use lock::SyncLock;
 #[doc(inline)]
 pub use read_guard::ObservableReadGuard;
 #[doc(inline)]

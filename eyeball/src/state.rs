@@ -1,12 +1,15 @@
 use std::{
     hash::{Hash, Hasher},
     mem,
-    sync::RwLock,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        RwLock,
+    },
     task::Waker,
 };
 
 #[derive(Debug)]
-pub(crate) struct ObservableState<T> {
+pub struct ObservableState<T> {
     /// The inner value.
     value: T,
 
@@ -15,7 +18,7 @@ pub(crate) struct ObservableState<T> {
     /// Starts at 1 and is incremented by 1 each time the value is updated.
     /// When the observable is dropped, this is set to 0 to indicate no further
     /// updates will happen.
-    version: u64,
+    version: AtomicU64,
 
     /// List of wakers.
     ///
@@ -29,7 +32,7 @@ pub(crate) struct ObservableState<T> {
 
 impl<T> ObservableState<T> {
     pub(crate) fn new(value: T) -> Self {
-        Self { value, version: 1, wakers: Default::default() }
+        Self { value, version: AtomicU64::new(1), wakers: Default::default() }
     }
 
     /// Get a reference to the inner value.
@@ -39,7 +42,7 @@ impl<T> ObservableState<T> {
 
     /// Get the current version of the inner value.
     pub(crate) fn version(&self) -> u64 {
-        self.version
+        self.version.load(Ordering::Acquire)
     }
 
     pub(crate) fn add_waker(&self, waker: Waker) {
@@ -86,14 +89,14 @@ impl<T> ObservableState<T> {
     }
 
     /// "Close" the state – indicate that no further updates will happen.
-    pub(crate) fn close(&mut self) {
-        self.version = 0;
+    pub(crate) fn close(&self) {
+        self.version.store(0, Ordering::Release);
         // Clear the backing buffer for the wakers, no new ones will be added.
-        wake(mem::take(self.wakers.get_mut().unwrap()));
+        wake(mem::take(&mut *self.wakers.write().unwrap()));
     }
 
     fn incr_version_and_wake(&mut self) {
-        self.version += 1;
+        self.version.fetch_add(1, Ordering::Release);
         wake(self.wakers.get_mut().unwrap().drain(..));
     }
 }

@@ -4,27 +4,29 @@
 //! important type `Subscriber` is re-exported at the crate root.
 
 use std::{
+    fmt,
     future::{poll_fn, Future},
     pin::Pin,
     task::{Context, Poll},
 };
 
 use futures_core::Stream;
-use readlock::SharedReadLock;
 
-use crate::{state::ObservableState, ObservableReadGuard};
+use crate::{lock::Lock, state::ObservableState, ObservableReadGuard, SyncLock};
+
+#[cfg(feature = "async-lock")]
+pub(crate) mod async_lock;
 
 /// A subscriber for updates of an `Observable`.
 #[must_use]
-#[derive(Debug)]
-pub struct Subscriber<T> {
-    state: SharedReadLock<ObservableState<T>>,
+pub struct Subscriber<T, L: Lock = SyncLock> {
+    state: L::SubscriberState<T>,
     observed_version: u64,
 }
 
 impl<T> Subscriber<T> {
-    pub(crate) fn new(read_lock: SharedReadLock<ObservableState<T>>, version: u64) -> Self {
-        Self { state: read_lock, observed_version: version }
+    pub(crate) fn new(state: readlock::SharedReadLock<ObservableState<T>>, version: u64) -> Self {
+        Self { state, observed_version: version }
     }
 
     /// Wait for an update and get a clone of the updated value.
@@ -118,6 +120,22 @@ impl<T> Subscriber<T> {
         ObservableReadGuard::new(self.state.lock())
     }
 
+    fn poll_next_ref(&mut self, cx: &mut Context<'_>) -> Poll<Option<ObservableReadGuard<'_, T>>> {
+        let state = self.state.lock();
+        let version = state.version();
+        if version == 0 {
+            Poll::Ready(None)
+        } else if self.observed_version < version {
+            self.observed_version = version;
+            Poll::Ready(Some(ObservableReadGuard::new(state)))
+        } else {
+            state.add_waker(cx.waker().clone());
+            Poll::Pending
+        }
+    }
+}
+
+impl<T, L: Lock> Subscriber<T, L> {
     /// Reset the observed version of the inner value.
     ///
     /// After calling this, it is guaranteed that the next call to
@@ -138,22 +156,11 @@ impl<T> Subscriber<T> {
     ///
     /// This is equivalent to using the regular [`clone`][Self::clone] method
     /// and calling [`reset`][Self::reset] on the clone afterwards.
-    pub fn clone_reset(&self) -> Self {
+    pub fn clone_reset(&self) -> Self
+    where
+        L::SubscriberState<T>: Clone,
+    {
         Self { state: self.state.clone(), observed_version: 0 }
-    }
-
-    fn poll_next_ref(&mut self, cx: &mut Context<'_>) -> Poll<Option<ObservableReadGuard<'_, T>>> {
-        let state = self.state.lock();
-        let version = state.version();
-        if version == 0 {
-            Poll::Ready(None)
-        } else if self.observed_version < version {
-            self.observed_version = version;
-            Poll::Ready(Some(ObservableReadGuard::new(state)))
-        } else {
-            state.add_waker(cx.waker().clone());
-            Poll::Pending
-        }
     }
 }
 
@@ -166,9 +173,24 @@ impl<T> Subscriber<T> {
 /// See [`clone_reset`][Self::clone_reset] for a convenient way of making a new
 /// `Subscriber` from an existing one without inheriting the observed version of
 /// the inner value.
-impl<T> Clone for Subscriber<T> {
+impl<T, L: Lock> Clone for Subscriber<T, L>
+where
+    L::SubscriberState<T>: Clone,
+{
     fn clone(&self) -> Self {
         Self { state: self.state.clone(), observed_version: self.observed_version }
+    }
+}
+
+impl<T, L: Lock> fmt::Debug for Subscriber<T, L>
+where
+    L::SubscriberState<T>: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Subscriber")
+            .field("state", &self.state)
+            .field("observed_version", &self.observed_version)
+            .finish()
     }
 }
 
@@ -182,9 +204,9 @@ impl<T: Clone> Stream for Subscriber<T> {
 
 /// Future returned by [`Subscriber::next`].
 #[must_use]
-#[derive(Debug)]
-pub struct Next<'a, T> {
-    subscriber: &'a mut Subscriber<T>,
+#[allow(missing_debug_implementations)]
+pub struct Next<'a, T, L: Lock = SyncLock> {
+    subscriber: &'a mut Subscriber<T, L>,
 }
 
 impl<'a, T> Next<'a, T> {
@@ -193,7 +215,7 @@ impl<'a, T> Next<'a, T> {
     }
 }
 
-impl<'a, T: Clone> Future for Next<'a, T> {
+impl<T: Clone> Future for Next<'_, T> {
     type Output = Option<T>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {

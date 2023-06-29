@@ -9,21 +9,26 @@ use std::{
     fmt,
     hash::Hash,
     ops,
-    sync::{Arc, RwLock, RwLockWriteGuard, Weak},
+    sync::{Arc, Weak},
 };
 
 use readlock::{SharedReadGuard, SharedReadLock};
+#[cfg(feature = "async-lock")]
+use readlock_tokio::{
+    SharedReadGuard as SharedAsyncReadGuard, SharedReadLock as SharedAsyncReadLock,
+};
 
-use crate::{state::ObservableState, ObservableReadGuard, Subscriber};
+#[cfg(feature = "async-lock")]
+use crate::AsyncLock;
+use crate::{lock::Lock, state::ObservableState, ObservableReadGuard, Subscriber, SyncLock};
 
 /// A value whose changes will be broadcast to subscribers.
 ///
 /// Unlike [`unique::Observable`](crate::unique::Observable), this `Observable`
 /// can be `Clone`d but does't dereference to `T`. Because of the latter, it has
 /// regular methods to access or modify the inner value.
-#[derive(Debug)]
-pub struct Observable<T> {
-    state: Arc<RwLock<ObservableState<T>>>,
+pub struct Observable<T, L: Lock = SyncLock> {
+    state: Arc<L::RwLock<ObservableState<T>>>,
     /// Ugly hack to track the amount of clones of this observable,
     /// *excluding subscribers*.
     _num_clones: Arc<()>,
@@ -33,11 +38,7 @@ impl<T> Observable<T> {
     /// Create a new `Observable` with the given initial value.
     #[must_use]
     pub fn new(value: T) -> Self {
-        Self::from_inner(Arc::new(RwLock::new(ObservableState::new(value))))
-    }
-
-    pub(crate) fn from_inner(state: Arc<RwLock<ObservableState<T>>>) -> Observable<T> {
-        Self { state, _num_clones: Arc::new(()) }
+        Self::from_inner(Arc::new(std::sync::RwLock::new(ObservableState::new(value))))
     }
 
     /// Obtain a new subscriber.
@@ -153,6 +154,135 @@ impl<T> Observable<T> {
     pub fn update_if(&self, f: impl FnOnce(&mut T) -> bool) {
         self.state.write().unwrap().update_if(f);
     }
+}
+
+#[cfg(feature = "async-lock")]
+impl<T: Send + Sync + 'static> Observable<T, AsyncLock> {
+    /// Create a new async `Observable` with the given initial value.
+    #[must_use]
+    pub fn new_async(value: T) -> Self {
+        Self::from_inner(Arc::new(tokio::sync::RwLock::new(ObservableState::new(value))))
+    }
+
+    /// Obtain a new subscriber.
+    ///
+    /// Calling `.next().await` or `.next_ref().await` on the returned
+    /// subscriber only resolves once the inner value has been updated again
+    /// after the call to `subscribe`.
+    ///
+    /// See [`subscribe_reset`][Self::subscribe_reset] if you want to obtain a
+    /// subscriber that immediately yields without any updates.
+    pub async fn subscribe(&self) -> Subscriber<T, AsyncLock> {
+        let version = self.state.read().await.version();
+        Subscriber::new_async(SharedAsyncReadLock::from_inner(Arc::clone(&self.state)), version)
+    }
+
+    /// Obtain a new subscriber that immediately yields.
+    ///
+    /// `.subscribe_reset()` is equivalent to `.subscribe()` with a subsequent
+    /// call to [`.reset()`][Subscriber::reset] on the returned subscriber.
+    ///
+    /// In contrast to [`subscribe`][Self::subscribe], calling `.next().await`
+    /// or `.next_ref().await` on the returned subscriber before updating the
+    /// inner value yields the current value instead of waiting. Further calls
+    /// to either of the two will wait for updates.
+    pub fn subscribe_reset(&self) -> Subscriber<T, AsyncLock> {
+        Subscriber::new_async(SharedAsyncReadLock::from_inner(Arc::clone(&self.state)), 0)
+    }
+
+    /// Get a clone of the inner value.
+    pub async fn get(&self) -> T
+    where
+        T: Clone,
+    {
+        self.state.read().await.get().clone()
+    }
+
+    /// Read the inner value.
+    ///
+    /// While the returned read guard is alive, nobody can update the inner
+    /// value. If you want to update the value based on the previous value, do
+    /// **not** use this method because it can cause races with other clones of
+    /// the same `Observable`. Instead, call of of the `update_` methods, or
+    /// if that doesn't fit your use case, call [`write`][Self::write] and
+    /// update the value through the write guard it returns.
+    pub async fn read(&self) -> ObservableReadGuard<'_, T, AsyncLock> {
+        ObservableReadGuard::new(SharedAsyncReadGuard::from_inner(self.state.read().await))
+    }
+
+    /// Get a write guard to the inner value.
+    ///
+    /// This can be used to set a new value based on the existing value. The
+    /// returned write guard dereferences (immutably) to the inner type, and has
+    /// associated functions to update it.
+    pub async fn write(&self) -> ObservableWriteGuard<'_, T, AsyncLock> {
+        ObservableWriteGuard::new(self.state.write().await)
+    }
+
+    /// Set the inner value to the given `value`, notify subscribers and return
+    /// the previous value.
+    pub async fn set(&self, value: T) -> T {
+        self.state.write().await.set(value)
+    }
+
+    /// Set the inner value to the given `value` if it doesn't compare equal to
+    /// the existing value.
+    ///
+    /// If the inner value is set, subscribers are notified and
+    /// `Some(previous_value)` is returned. Otherwise, `None` is returned.
+    pub async fn set_if_not_eq(&self, value: T) -> Option<T>
+    where
+        T: PartialEq,
+    {
+        self.state.write().await.set_if_not_eq(value)
+    }
+
+    /// Set the inner value to the given `value` if it has a different hash than
+    /// the existing value.
+    ///
+    /// If the inner value is set, subscribers are notified and
+    /// `Some(previous_value)` is returned. Otherwise, `None` is returned.
+    pub async fn set_if_hash_not_eq(&self, value: T) -> Option<T>
+    where
+        T: Hash,
+    {
+        self.state.write().await.set_if_hash_not_eq(value)
+    }
+
+    /// Set the inner value to a `Default` instance of its type, notify
+    /// subscribers and return the previous value.
+    ///
+    /// Shorthand for `observable.set(T::default())`.
+    pub async fn take(&self) -> T
+    where
+        T: Default,
+    {
+        self.set(T::default()).await
+    }
+
+    /// Update the inner value and notify subscribers.
+    ///
+    /// Note that even if the inner value is not actually changed by the
+    /// closure, subscribers will be notified as if it was. Use
+    /// [`update_if`][Self::update_if] if you want to conditionally mutate the
+    /// inner value.
+    pub async fn update(&self, f: impl FnOnce(&mut T)) {
+        self.state.write().await.update(f);
+    }
+
+    /// Maybe update the inner value and notify subscribers if it changed.
+    ///
+    /// The closure given to this function must return `true` if subscribers
+    /// should be notified of a change to the inner value.
+    pub async fn update_if(&self, f: impl FnOnce(&mut T) -> bool) {
+        self.state.write().await.update_if(f);
+    }
+}
+
+impl<T, L: Lock> Observable<T, L> {
+    pub(crate) fn from_inner(state: Arc<L::RwLock<ObservableState<T>>>) -> Self {
+        Self { state, _num_clones: Arc::new(()) }
+    }
 
     /// Get the number of `Observable` clones.
     ///
@@ -202,7 +332,7 @@ impl<T> Observable<T> {
     }
 
     /// Create a new [`WeakObservable`] reference to the same inner value.
-    pub fn downgrade(&self) -> WeakObservable<T> {
+    pub fn downgrade(&self) -> WeakObservable<T, L> {
         WeakObservable {
             state: Arc::downgrade(&self.state),
             _num_clones: Arc::downgrade(&self._num_clones),
@@ -210,24 +340,41 @@ impl<T> Observable<T> {
     }
 }
 
-impl<T> Clone for Observable<T> {
+impl<T, L: Lock> Clone for Observable<T, L> {
     fn clone(&self) -> Self {
         Self { state: self.state.clone(), _num_clones: self._num_clones.clone() }
     }
 }
 
-impl<T: Default> Default for Observable<T> {
-    fn default() -> Self {
-        Self::new(T::default())
+impl<T, L: Lock> fmt::Debug for Observable<T, L>
+where
+    L::RwLock<ObservableState<T>>: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Observable")
+            .field("state", &self.state)
+            .field("_num_clones", &self._num_clones)
+            .finish()
     }
 }
 
-impl<T> Drop for Observable<T> {
+impl<T, L> Default for Observable<T, L>
+where
+    L: Lock,
+    L::RwLock<ObservableState<T>>: Default,
+{
+    fn default() -> Self {
+        Self::from_inner(Arc::new(Default::default()))
+    }
+}
+
+impl<T, L: Lock> Drop for Observable<T, L> {
     fn drop(&mut self) {
         // Only close the state if there are no other clones of this
         // `Observable`.
         if Arc::strong_count(&self._num_clones) == 1 {
-            self.state.write().unwrap().close();
+            // If there are no other clones, obtaining a read lock can't fail.
+            L::read_noblock(&self.state).close();
         }
     }
 }
@@ -239,26 +386,31 @@ impl<T> Drop for Observable<T> {
 /// themselves.
 ///
 /// See [`std::sync::Weak`] for a general explanation of weak references.
-#[derive(Debug)]
-pub struct WeakObservable<T> {
-    state: Weak<RwLock<ObservableState<T>>>,
+pub struct WeakObservable<T, L: Lock = SyncLock> {
+    state: Weak<L::RwLock<ObservableState<T>>>,
     _num_clones: Weak<()>,
 }
 
-impl<T> WeakObservable<T> {
+impl<T, L: Lock> WeakObservable<T, L> {
     /// Attempt to upgrade the `WeakObservable` into an `Observable`.
     ///
     /// Returns `None` if the inner value has already been dropped.
-    pub fn upgrade(&self) -> Option<Observable<T>> {
+    pub fn upgrade(&self) -> Option<Observable<T, L>> {
         let state = Weak::upgrade(&self.state)?;
         let _num_clones = Weak::upgrade(&self._num_clones)?;
         Some(Observable { state, _num_clones })
     }
 }
 
-impl<T> Clone for WeakObservable<T> {
+impl<T, L: Lock> Clone for WeakObservable<T, L> {
     fn clone(&self) -> Self {
         Self { state: self.state.clone(), _num_clones: self._num_clones.clone() }
+    }
+}
+
+impl<T, L: Lock> fmt::Debug for WeakObservable<T, L> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("WeakObservable").finish_non_exhaustive()
     }
 }
 
@@ -268,12 +420,12 @@ impl<T> Clone for WeakObservable<T> {
 /// [`Observable`] is locked and can not be updated except through that guard.
 #[must_use]
 #[clippy::has_significant_drop]
-pub struct ObservableWriteGuard<'a, T> {
-    inner: RwLockWriteGuard<'a, ObservableState<T>>,
+pub struct ObservableWriteGuard<'a, T: 'a, L: Lock = SyncLock> {
+    inner: L::RwLockWriteGuard<'a, ObservableState<T>>,
 }
 
-impl<'a, T> ObservableWriteGuard<'a, T> {
-    fn new(inner: RwLockWriteGuard<'a, ObservableState<T>>) -> Self {
+impl<'a, T: 'a, L: Lock> ObservableWriteGuard<'a, T, L> {
+    fn new(inner: L::RwLockWriteGuard<'a, ObservableState<T>>) -> Self {
         Self { inner }
     }
 
@@ -343,7 +495,7 @@ impl<T: fmt::Debug> fmt::Debug for ObservableWriteGuard<'_, T> {
     }
 }
 
-impl<T> ops::Deref for ObservableWriteGuard<'_, T> {
+impl<T, L: Lock> ops::Deref for ObservableWriteGuard<'_, T, L> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {

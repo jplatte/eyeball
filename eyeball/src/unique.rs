@@ -168,6 +168,6 @@ impl<T> ops::Deref for Observable<T> {
 
 impl<T> Drop for Observable<T> {
     fn drop(&mut self) {
-        Shared::lock(&mut self.state).close();
+        self.state.close();
     }
 }

@@ -1,3 +1,12 @@
+# unreleased
+
+- Add a new generic parameter to `Subscriber` and `shared::Observable` that
+  controls whether the internal lock is an async-aware one or not. It defaults
+  to `SyncLock` which is the same behavior as before, but can be set to
+  `AsyncLock` (created with `Observable::new_async`), if you want to lock the
+  inner value for writing over `.await` points in async code. This means that
+  most operations on the observable and its subscribers become `async`.
+
 # 0.7.0
 
 - Remove `shared::Observable::try_into_unique`
