@@ -27,6 +27,13 @@ use crate::{lock::Lock, state::ObservableState, ObservableReadGuard, Subscriber,
 /// Unlike [`unique::Observable`](crate::unique::Observable), this `Observable`
 /// can be `Clone`d but does't dereference to `T`. Because of the latter, it has
 /// regular methods to access or modify the inner value.
+///
+/// # Async-aware locking
+///
+/// If you want to write-lock the inner value over a `.await` point, that
+/// requires an async-aware lock. You can use [`new_async`][Self::new_async] to
+/// create an `Observable<T, AsyncLock>`, where most methods are `async` but in
+/// return locking the inner value over `.await` points becomes unproblematic.
 pub struct Observable<T, L: Lock = SyncLock> {
     state: Arc<L::RwLock<ObservableState<T>>>,
     /// Ugly hack to track the amount of clones of this observable,
