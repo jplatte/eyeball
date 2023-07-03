@@ -68,6 +68,9 @@
 //!
 //! [Observer pattern]: https://en.wikipedia.org/wiki/Observer_pattern
 
+// https://github.com/rust-lang/rust-clippy/issues/11076
+#![allow(unknown_lints, clippy::arc_with_non_send_sync)]
+
 mod lock;
 mod read_guard;
 pub mod shared;
