@@ -360,11 +360,12 @@ where
 
 impl<T, L> Default for Observable<T, L>
 where
+    T: Default,
     L: Lock,
-    L::RwLock<ObservableState<T>>: Default,
 {
     fn default() -> Self {
-        Self::from_inner(Arc::new(Default::default()))
+        let rwlock = L::new_rwlock(ObservableState::new(T::default()));
+        Self::from_inner(Arc::new(rwlock))
     }
 }
 
