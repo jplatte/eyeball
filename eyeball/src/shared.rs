@@ -1,4 +1,4 @@
-//! This module defines a shared [`Observable`] type that is clonable, requires
+//! This module defines a [`SharedObservable`] type that is clonable, requires
 //! only `&` access to update its inner value but doesn't dereference to the
 //! inner value.
 //!
@@ -24,25 +24,26 @@ use crate::{lock::Lock, state::ObservableState, ObservableReadGuard, Subscriber,
 
 /// A value whose changes will be broadcast to subscribers.
 ///
-/// Unlike [`unique::Observable`](crate::unique::Observable), this `Observable`
-/// can be `Clone`d but does't dereference to `T`. Because of the latter, it has
+/// Unlike [`Observable`](crate::Observable), `SharedObservable` can be
+/// `Clone`d but does't dereference to `T`. Because of the latter, it has
 /// regular methods to access or modify the inner value.
 ///
 /// # Async-aware locking
 ///
 /// If you want to write-lock the inner value over a `.await` point, that
 /// requires an async-aware lock. You can use [`new_async`][Self::new_async] to
-/// create an `Observable<T, AsyncLock>`, where most methods are `async` but in
-/// return locking the inner value over `.await` points becomes unproblematic.
-pub struct Observable<T, L: Lock = SyncLock> {
+/// create a `SharedObservable<T, AsyncLock>`, where most methods are `async`
+/// but in return locking the inner value over `.await` points becomes
+/// unproblematic.
+pub struct SharedObservable<T, L: Lock = SyncLock> {
     state: Arc<L::RwLock<ObservableState<T>>>,
     /// Ugly hack to track the amount of clones of this observable,
     /// *excluding subscribers*.
     _num_clones: Arc<()>,
 }
 
-impl<T> Observable<T> {
-    /// Create a new `Observable` with the given initial value.
+impl<T> SharedObservable<T> {
+    /// Create a new `SharedObservable` with the given initial value.
     #[must_use]
     pub fn new(value: T) -> Self {
         Self::from_inner(Arc::new(std::sync::RwLock::new(ObservableState::new(value))))
@@ -87,9 +88,9 @@ impl<T> Observable<T> {
     /// While the returned read guard is alive, nobody can update the inner
     /// value. If you want to update the value based on the previous value, do
     /// **not** use this method because it can cause races with other clones of
-    /// the same `Observable`. Instead, call of of the `update_` methods, or
-    /// if that doesn't fit your use case, call [`write`][Self::write] and
-    /// update the value through the write guard it returns.
+    /// the same `SharedObservable`. Instead, call of of the `update_` methods,
+    /// or if that doesn't fit your use case, call [`write`][Self::write]
+    /// and update the value through the write guard it returns.
     pub fn read(&self) -> ObservableReadGuard<'_, T> {
         ObservableReadGuard::new(SharedReadGuard::from_inner(self.state.read().unwrap()))
     }
@@ -164,8 +165,8 @@ impl<T> Observable<T> {
 }
 
 #[cfg(feature = "async-lock")]
-impl<T: Send + Sync + 'static> Observable<T, AsyncLock> {
-    /// Create a new async `Observable` with the given initial value.
+impl<T: Send + Sync + 'static> SharedObservable<T, AsyncLock> {
+    /// Create a new async `SharedObservable` with the given initial value.
     #[must_use]
     pub fn new_async(value: T) -> Self {
         Self::from_inner(Arc::new(tokio::sync::RwLock::new(ObservableState::new(value))))
@@ -210,9 +211,9 @@ impl<T: Send + Sync + 'static> Observable<T, AsyncLock> {
     /// While the returned read guard is alive, nobody can update the inner
     /// value. If you want to update the value based on the previous value, do
     /// **not** use this method because it can cause races with other clones of
-    /// the same `Observable`. Instead, call of of the `update_` methods, or
-    /// if that doesn't fit your use case, call [`write`][Self::write] and
-    /// update the value through the write guard it returns.
+    /// the same `SharedObservable`. Instead, call of of the `update_` methods,
+    /// or if that doesn't fit your use case, call [`write`][Self::write]
+    /// and update the value through the write guard it returns.
     pub async fn read(&self) -> ObservableReadGuard<'_, T, AsyncLock> {
         ObservableReadGuard::new(SharedAsyncReadGuard::from_inner(self.state.read().await))
     }
@@ -286,12 +287,12 @@ impl<T: Send + Sync + 'static> Observable<T, AsyncLock> {
     }
 }
 
-impl<T, L: Lock> Observable<T, L> {
+impl<T, L: Lock> SharedObservable<T, L> {
     pub(crate) fn from_inner(state: Arc<L::RwLock<ObservableState<T>>>) -> Self {
         Self { state, _num_clones: Arc::new(()) }
     }
 
-    /// Get the number of `Observable` clones.
+    /// Get the number of `SharedObservable` clones.
     ///
     /// This always returns at least `1` since `self` is included in the count.
     ///
@@ -315,8 +316,8 @@ impl<T, L: Lock> Observable<T, L> {
 
     /// Get the number of strong references to the inner value.
     ///
-    /// Every clone of the `Observable` and every associated `Subscriber` holds
-    /// a reference, so this is the sum of all clones and subscribers.
+    /// Every clone of the `SharedObservable` and every associated `Subscriber`
+    /// holds a reference, so this is the sum of all clones and subscribers.
     /// This always returns at least `1` since `self` is included in the count.
     ///
     /// Equivalent to `ob.observable_count() + ob.subscriber_count()`.
@@ -347,25 +348,25 @@ impl<T, L: Lock> Observable<T, L> {
     }
 }
 
-impl<T, L: Lock> Clone for Observable<T, L> {
+impl<T, L: Lock> Clone for SharedObservable<T, L> {
     fn clone(&self) -> Self {
         Self { state: self.state.clone(), _num_clones: self._num_clones.clone() }
     }
 }
 
-impl<T, L: Lock> fmt::Debug for Observable<T, L>
+impl<T, L: Lock> fmt::Debug for SharedObservable<T, L>
 where
     L::RwLock<ObservableState<T>>: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Observable")
+        f.debug_struct("SharedObservable")
             .field("state", &self.state)
             .field("_num_clones", &self._num_clones)
             .finish()
     }
 }
 
-impl<T, L> Default for Observable<T, L>
+impl<T, L> Default for SharedObservable<T, L>
 where
     T: Default,
     L: Lock,
@@ -376,10 +377,10 @@ where
     }
 }
 
-impl<T, L: Lock> Drop for Observable<T, L> {
+impl<T, L: Lock> Drop for SharedObservable<T, L> {
     fn drop(&mut self) {
         // Only close the state if there are no other clones of this
-        // `Observable`.
+        // `SharedObservable`.
         if Arc::strong_count(&self._num_clones) == 1 {
             // If there are no other clones, obtaining a read lock can't fail.
             L::read_noblock(&self.state).close();
@@ -387,7 +388,7 @@ impl<T, L: Lock> Drop for Observable<T, L> {
     }
 }
 
-/// A weak reference to a shared [`Observable`].
+/// A weak reference to a [`SharedObservable`].
 ///
 /// This type is only useful in niche cases, since one generally shouldn't nest
 /// interior-mutable types in observables, which includes observables
@@ -400,13 +401,13 @@ pub struct WeakObservable<T, L: Lock = SyncLock> {
 }
 
 impl<T, L: Lock> WeakObservable<T, L> {
-    /// Attempt to upgrade the `WeakObservable` into an `Observable`.
+    /// Attempt to upgrade the `WeakObservable` into a `SharedObservable`.
     ///
     /// Returns `None` if the inner value has already been dropped.
-    pub fn upgrade(&self) -> Option<Observable<T, L>> {
+    pub fn upgrade(&self) -> Option<SharedObservable<T, L>> {
         let state = Weak::upgrade(&self.state)?;
         let _num_clones = Weak::upgrade(&self._num_clones)?;
-        Some(Observable { state, _num_clones })
+        Some(SharedObservable { state, _num_clones })
     }
 }
 
@@ -425,7 +426,8 @@ impl<T, L: Lock> fmt::Debug for WeakObservable<T, L> {
 /// A write guard for the inner value of an observable.
 ///
 /// Note that as long as an `ObservableWriteGuard` is kept alive, the associated
-/// [`Observable`] is locked and can not be updated except through that guard.
+/// [`SharedObservable`] is locked and can not be updated except through that
+/// guard.
 #[must_use]
 #[clippy::has_significant_drop]
 pub struct ObservableWriteGuard<'a, T: 'a, L: Lock = SyncLock> {
@@ -470,7 +472,7 @@ impl<'a, T: 'a, L: Lock> ObservableWriteGuard<'a, T, L> {
     /// Set the inner value to a `Default` instance of its type, notify
     /// subscribers and return the previous value.
     ///
-    /// Shorthand for `Observable::set(this, T::default())`.
+    /// Shorthand for `ObservableWriteGuard::set(this, T::default())`.
     pub fn take(this: &mut Self) -> T
     where
         T: Default,

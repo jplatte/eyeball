@@ -1,20 +1,20 @@
 //! Add observability to your Rust types!
 //!
 //! This crate implements a basic form of the [Observer pattern][] for Rust.
-//! It provides [`unique::Observable<T>`] as a type that semi-transparently
-//! wraps an inner value `T` and broadcasts changes to any associated
-//! [`Subscriber<T>`]s. `Subscriber`s can currently only be polled for updates
-//! using `async` / `.await`, but this may change in the future.
+//! It provides [`Observable<T>`] as a type that semi-transparently wraps an
+//! inner value `T` and broadcasts changes to any associated [`Subscriber<T>`]s.
+//! `Subscriber`s can currently only be polled for updates using `async` /
+//! `.await`, but this may change in the future.
 //!
-//! There is also [`shared::Observable<T>`] as another variation which
+//! There is also [`SharedObservable<T>`] as another variation which
 //! implements [`Clone`] but not [`Deref`][std::ops::Deref]. It is more
-//! ergonomic and efficient than putting a `unique::Observable` inside of
+//! ergonomic and efficient than putting a `Observable` inside of
 //! `Arc<RwLock<_>>` for updating the value from multiple places in the code.
 //!
 //! Here is a quick walk-through:
 //!
 //! ```
-//! use eyeball::unique::Observable;
+//! use eyeball::Observable;
 //!
 //! # #[tokio::main(flavor = "current_thread")]
 //! # async fn main() {
@@ -73,17 +73,19 @@
 
 mod lock;
 mod read_guard;
-pub mod shared;
+mod shared;
 mod state;
 pub mod subscriber;
-pub mod unique;
+mod unique;
 
 #[cfg(feature = "async-lock")]
 #[doc(inline)]
-pub use lock::AsyncLock;
+pub use self::lock::AsyncLock;
 #[doc(inline)]
-pub use lock::SyncLock;
-#[doc(inline)]
-pub use read_guard::ObservableReadGuard;
-#[doc(inline)]
-pub use subscriber::Subscriber;
+pub use self::{
+    lock::SyncLock,
+    read_guard::ObservableReadGuard,
+    shared::{SharedObservable, WeakObservable},
+    subscriber::Subscriber,
+    unique::Observable,
+};
