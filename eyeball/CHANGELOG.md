@@ -1,4 +1,4 @@
-# unreleased
+# 0.8.0
 
 - Rename / move the observable types:
   - `eyeball::unique::Observable` is now `eyeball::Observable`
