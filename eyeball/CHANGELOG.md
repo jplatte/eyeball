@@ -1,3 +1,9 @@
+# 0.8.3
+
+- Loosen bounds on `L` for `Observable`'s `Debug` implementation
+  - The `Debug` impl was broken before since `SyncLock` and `AsyncLock` don't
+    implement `Debug`
+
 # 0.8.2
 
 - Add `ObservableWriteGuard` to the crate root
