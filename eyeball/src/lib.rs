@@ -85,7 +85,7 @@ pub use self::lock::AsyncLock;
 pub use self::{
     lock::SyncLock,
     read_guard::ObservableReadGuard,
-    shared::{SharedObservable, WeakObservable},
+    shared::{ObservableWriteGuard, SharedObservable, WeakObservable},
     subscriber::Subscriber,
     unique::Observable,
 };
