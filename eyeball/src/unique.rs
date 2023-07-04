@@ -258,13 +258,13 @@ impl<T, L: Lock> Observable<T, L> {
     /// Convert this unique `Observable` into a [`shared::Observable`].
     ///
     /// Any subscribers created for `self` remain valid.
-    pub fn into_shared(this: Self) -> shared::Observable<T, L> {
+    pub fn into_shared(this: Self) -> shared::SharedObservable<T, L> {
         // Destructure `this` without running `Drop`.
         let state = unsafe { ptr::read(&this.state) };
         mem::forget(this);
 
         let rwlock = L::shared_into_inner(state);
-        shared::Observable::from_inner(rwlock)
+        shared::SharedObservable::from_inner(rwlock)
     }
 }
 

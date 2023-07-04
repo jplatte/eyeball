@@ -24,8 +24,8 @@ use crate::{lock::Lock, state::ObservableState, ObservableReadGuard, Subscriber,
 
 /// A value whose changes will be broadcast to subscribers.
 ///
-/// Unlike [`unique::Observable`](crate::unique::Observable), this `Observable`
-/// can be `Clone`d but does't dereference to `T`. Because of the latter, it has
+/// Unlike [`Observable`](crate::Observable), `SharedObservable` can be
+/// `Clone`d but does't dereference to `T`. Because of the latter, it has
 /// regular methods to access or modify the inner value.
 ///
 /// # Async-aware locking
@@ -34,14 +34,14 @@ use crate::{lock::Lock, state::ObservableState, ObservableReadGuard, Subscriber,
 /// requires an async-aware lock. You can use [`new_async`][Self::new_async] to
 /// create an `Observable<T, AsyncLock>`, where most methods are `async` but in
 /// return locking the inner value over `.await` points becomes unproblematic.
-pub struct Observable<T, L: Lock = SyncLock> {
+pub struct SharedObservable<T, L: Lock = SyncLock> {
     state: Arc<L::RwLock<ObservableState<T>>>,
     /// Ugly hack to track the amount of clones of this observable,
     /// *excluding subscribers*.
     _num_clones: Arc<()>,
 }
 
-impl<T> Observable<T> {
+impl<T> SharedObservable<T> {
     /// Create a new `Observable` with the given initial value.
     #[must_use]
     pub fn new(value: T) -> Self {
@@ -164,7 +164,7 @@ impl<T> Observable<T> {
 }
 
 #[cfg(feature = "async-lock")]
-impl<T: Send + Sync + 'static> Observable<T, AsyncLock> {
+impl<T: Send + Sync + 'static> SharedObservable<T, AsyncLock> {
     /// Create a new async `Observable` with the given initial value.
     #[must_use]
     pub fn new_async(value: T) -> Self {
@@ -286,7 +286,7 @@ impl<T: Send + Sync + 'static> Observable<T, AsyncLock> {
     }
 }
 
-impl<T, L: Lock> Observable<T, L> {
+impl<T, L: Lock> SharedObservable<T, L> {
     pub(crate) fn from_inner(state: Arc<L::RwLock<ObservableState<T>>>) -> Self {
         Self { state, _num_clones: Arc::new(()) }
     }
@@ -347,13 +347,13 @@ impl<T, L: Lock> Observable<T, L> {
     }
 }
 
-impl<T, L: Lock> Clone for Observable<T, L> {
+impl<T, L: Lock> Clone for SharedObservable<T, L> {
     fn clone(&self) -> Self {
         Self { state: self.state.clone(), _num_clones: self._num_clones.clone() }
     }
 }
 
-impl<T, L: Lock> fmt::Debug for Observable<T, L>
+impl<T, L: Lock> fmt::Debug for SharedObservable<T, L>
 where
     L::RwLock<ObservableState<T>>: fmt::Debug,
 {
@@ -365,7 +365,7 @@ where
     }
 }
 
-impl<T, L> Default for Observable<T, L>
+impl<T, L> Default for SharedObservable<T, L>
 where
     T: Default,
     L: Lock,
@@ -376,7 +376,7 @@ where
     }
 }
 
-impl<T, L: Lock> Drop for Observable<T, L> {
+impl<T, L: Lock> Drop for SharedObservable<T, L> {
     fn drop(&mut self) {
         // Only close the state if there are no other clones of this
         // `Observable`.
@@ -403,10 +403,10 @@ impl<T, L: Lock> WeakObservable<T, L> {
     /// Attempt to upgrade the `WeakObservable` into an `Observable`.
     ///
     /// Returns `None` if the inner value has already been dropped.
-    pub fn upgrade(&self) -> Option<Observable<T, L>> {
+    pub fn upgrade(&self) -> Option<SharedObservable<T, L>> {
         let state = Weak::upgrade(&self.state)?;
         let _num_clones = Weak::upgrade(&self._num_clones)?;
-        Some(Observable { state, _num_clones })
+        Some(SharedObservable { state, _num_clones })
     }
 }
 

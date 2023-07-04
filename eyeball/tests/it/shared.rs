@@ -1,9 +1,9 @@
-use eyeball::shared::Observable;
+use eyeball::SharedObservable;
 use tokio::task::JoinSet;
 
 #[tokio::test]
 async fn lag() {
-    let ob = Observable::new("hello, world!".to_owned());
+    let ob = SharedObservable::new("hello, world!".to_owned());
     let mut rx1 = ob.subscribe();
     let mut rx2 = ob.subscribe();
 
@@ -18,7 +18,7 @@ async fn lag() {
 #[tokio::test]
 #[cfg_attr(miri, ignore)]
 async fn separate_tasks() {
-    let ob = Observable::new(Box::new([0; 256]));
+    let ob = SharedObservable::new(Box::new([0; 256]));
 
     let mut subscriber = ob.subscribe();
     let handle = tokio::spawn(async move {
@@ -48,7 +48,7 @@ async fn lag_no_clone() {
     // no Clone impl
     struct Foo(String);
 
-    let ob = Observable::new(Foo("hello, world!".to_owned()));
+    let ob = SharedObservable::new(Foo("hello, world!".to_owned()));
     let mut rx1 = ob.subscribe();
     let mut rx2 = ob.subscribe();
 
