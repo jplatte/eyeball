@@ -83,6 +83,9 @@ mod unique;
 pub use self::lock::AsyncLock;
 #[doc(inline)]
 pub use self::{
-    lock::SyncLock, read_guard::ObservableReadGuard, shared::SharedObservable,
-    subscriber::Subscriber, unique::Observable,
+    lock::SyncLock,
+    read_guard::ObservableReadGuard,
+    shared::{SharedObservable, WeakObservable},
+    subscriber::Subscriber,
+    unique::Observable,
 };

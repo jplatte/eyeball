@@ -12,7 +12,7 @@ use readlock_tokio::Shared as SharedAsync;
 
 #[cfg(feature = "async-lock")]
 use crate::AsyncLock;
-use crate::{lock::Lock, shared, state::ObservableState, Subscriber, SyncLock};
+use crate::{lock::Lock, shared::SharedObservable, state::ObservableState, Subscriber, SyncLock};
 
 /// A value whose changes will be broadcast to subscribers.
 ///
@@ -23,7 +23,7 @@ use crate::{lock::Lock, shared, state::ObservableState, Subscriber, SyncLock};
 ///
 /// # Async-aware locking
 ///
-/// Contrary to [`shared::Observable`]'s async-aware locking support, using
+/// Contrary to [`SharedObservable`]'s async-aware locking support, using
 /// `Observable` with `L` = [`AsyncLock`] with this type is rarely useful since
 /// having access to the `Observable` means nobody can be mutating the inner
 /// value in parallel. It allows a subscriber to read-lock the value over a
@@ -255,16 +255,16 @@ impl<T, L: Lock> Observable<T, L> {
         L::shared_read_count(&this.state)
     }
 
-    /// Convert this unique `Observable` into a [`shared::Observable`].
+    /// Convert this unique `Observable` into a [`SharedObservable`].
     ///
     /// Any subscribers created for `self` remain valid.
-    pub fn into_shared(this: Self) -> shared::SharedObservable<T, L> {
+    pub fn into_shared(this: Self) -> SharedObservable<T, L> {
         // Destructure `this` without running `Drop`.
         let state = unsafe { ptr::read(&this.state) };
         mem::forget(this);
 
         let rwlock = L::shared_into_inner(state);
-        shared::SharedObservable::from_inner(rwlock)
+        SharedObservable::from_inner(rwlock)
     }
 }
 
