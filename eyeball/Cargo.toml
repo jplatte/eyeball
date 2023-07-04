@@ -19,6 +19,8 @@ tokio-util = { version = "0.7.8", optional = true }
 criterion = { version = "0.5.1", optional = true }
 
 [dev-dependencies]
+futures-util.workspace = true
+stream_assert.workspace = true
 tokio = { workspace = true, features = ["macros", "rt"] }
 
 [features]
