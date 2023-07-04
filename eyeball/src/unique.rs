@@ -4,7 +4,7 @@
 //! Use this in situations where only a single location in the code should be
 //! able to update the inner value.
 
-use std::{hash::Hash, mem, ops, ptr};
+use std::{fmt, hash::Hash, mem, ops, ptr};
 
 use readlock::Shared;
 #[cfg(feature = "async-lock")]
@@ -28,7 +28,6 @@ use crate::{lock::Lock, shared::SharedObservable, state::ObservableState, Subscr
 /// having access to the `Observable` means nobody can be mutating the inner
 /// value in parallel. It allows a subscriber to read-lock the value over a
 /// `.await` point without losing `Send`-ness of the future though.
-#[derive(Debug)]
 pub struct Observable<T, L: Lock = SyncLock> {
     state: L::Shared<ObservableState<T>>,
 }
@@ -265,6 +264,15 @@ impl<T, L: Lock> Observable<T, L> {
 
         let rwlock = L::shared_into_inner(state);
         SharedObservable::from_inner(rwlock)
+    }
+}
+
+impl<T, L: Lock> fmt::Debug for Observable<T, L>
+where
+    L::Shared<ObservableState<T>>: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SharedObservable").field("state", &self.state).finish()
     }
 }
 
