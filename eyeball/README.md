@@ -1,20 +1,20 @@
 # eyeball
 
 This crate implements a basic form of the [Observer pattern][] for Rust.
-It provides `unique::Observable<T>` as a type that semi-transparently wraps an
-inner value `T` and broadcasts changes to any associated `Subscriber<T>`s.
+It provides `Observable<T>` as a type that semi-transparently wraps an inner
+value `T` and broadcasts changes to any associated `Subscriber<T>`s.
 `Subscriber`s can currently only be polled for updates using `async` / `.await`,
 but this may change in the future.
 
-There is also [`shared::Observable<T>`] as another variation which
-implements [`Clone`] but not [`Deref`][std::ops::Deref]. It is more
-ergonomic and efficient than putting a `unique::Observable` inside of
-`Arc<RwLock<_>>` for updating the value from multiple places in the code.
+There is also `SharedObservable<T>` as another variation which implements
+`Clone` but not `Deref`. It is more ergonomic and efficient than putting an
+`Observable` inside of `Arc<RwLock<_>>` for updating the value from multiple
+places in the code.
 
 Here is a quick walk-through:
 
 ```rust
-use eyeball::unique::Observable;
+use eyeball::Observable;
 
 let mut observable = Observable::new("A".to_owned());
 // Observable has no methods of its own, as those could conflict
