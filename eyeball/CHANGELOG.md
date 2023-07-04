@@ -1,3 +1,9 @@
+# 0.8.2
+
+- Add `ObservableWriteGuard` to the crate root
+  - It was previously part of the `shared` module and forgotten to be exported
+    as part of 0.8.0
+
 # 0.8.1
 
 - Improve README reading experience on crates.io
