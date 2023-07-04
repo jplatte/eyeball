@@ -1,3 +1,7 @@
+# 0.8.1
+
+- Improve README reading experience on crates.io
+
 # 0.8.0
 
 - Rename / move the observable types:
