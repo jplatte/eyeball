@@ -1,3 +1,7 @@
+# 0.8.4
+
+- Add `SharedObservable::{try_read, try_write}`
+
 # 0.8.3
 
 - Loosen bounds on `L` for `Observable`'s `Debug` implementation
