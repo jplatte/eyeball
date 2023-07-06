@@ -9,7 +9,7 @@ use std::{
     fmt,
     hash::Hash,
     ops,
-    sync::{Arc, Weak},
+    sync::{Arc, PoisonError, TryLockError, TryLockResult, Weak},
 };
 
 use readlock::{SharedReadGuard, SharedReadLock};
@@ -83,7 +83,8 @@ impl<T> SharedObservable<T> {
         self.state.read().unwrap().get().clone()
     }
 
-    /// Read the inner value.
+    /// Lock the inner with shared read access, blocking the current thread
+    /// until the lock can be acquired.
     ///
     /// While the returned read guard is alive, nobody can update the inner
     /// value. If you want to update the value based on the previous value, do
@@ -95,13 +96,42 @@ impl<T> SharedObservable<T> {
         ObservableReadGuard::new(SharedReadGuard::from_inner(self.state.read().unwrap()))
     }
 
-    /// Get a write guard to the inner value.
+    /// Attempts to acquire shared read access to the inner value.
+    ///
+    /// See [`RwLock`s documentation](https://doc.rust-lang.org/std/sync/struct.RwLock.html#method.try_read)
+    /// for details.
+    pub fn try_read(&self) -> TryLockResult<ObservableReadGuard<'_, T>> {
+        match self.state.try_read() {
+            Ok(guard) => Ok(ObservableReadGuard::new(SharedReadGuard::from_inner(guard))),
+            Err(TryLockError::Poisoned(e)) => Err(TryLockError::Poisoned(PoisonError::new(
+                ObservableReadGuard::new(SharedReadGuard::from_inner(e.into_inner())),
+            ))),
+            Err(TryLockError::WouldBlock) => Err(TryLockError::WouldBlock),
+        }
+    }
+
+    /// Lock the inner with exclusive write access, blocking the current thread
+    /// until the lock can be acquired.
     ///
     /// This can be used to set a new value based on the existing value. The
     /// returned write guard dereferences (immutably) to the inner type, and has
     /// associated functions to update it.
     pub fn write(&self) -> ObservableWriteGuard<'_, T> {
         ObservableWriteGuard::new(self.state.write().unwrap())
+    }
+
+    /// Attempts to acquire exclusive write access to the inner value.
+    ///
+    /// See [`RwLock`s documentation](https://doc.rust-lang.org/std/sync/struct.RwLock.html#method.try_write)
+    /// for details.
+    pub fn try_write(&self) -> TryLockResult<ObservableWriteGuard<'_, T>> {
+        match self.state.try_write() {
+            Ok(guard) => Ok(ObservableWriteGuard::new(guard)),
+            Err(TryLockError::Poisoned(e)) => Err(TryLockError::Poisoned(PoisonError::new(
+                ObservableWriteGuard::new(e.into_inner()),
+            ))),
+            Err(TryLockError::WouldBlock) => Err(TryLockError::WouldBlock),
+        }
     }
 
     /// Set the inner value to the given `value`, notify subscribers and return
@@ -218,6 +248,16 @@ impl<T: Send + Sync + 'static> SharedObservable<T, AsyncLock> {
         ObservableReadGuard::new(SharedAsyncReadGuard::from_inner(self.state.read().await))
     }
 
+    /// Attempts to acquire shared read access to the inner value.
+    ///
+    /// If it is already locked for writing, returns `None`.
+    pub fn try_read(&self) -> Option<ObservableReadGuard<'_, T, AsyncLock>> {
+        self.state
+            .try_read()
+            .ok()
+            .map(|guard| ObservableReadGuard::new(SharedAsyncReadGuard::from_inner(guard)))
+    }
+
     /// Get a write guard to the inner value.
     ///
     /// This can be used to set a new value based on the existing value. The
@@ -225,6 +265,13 @@ impl<T: Send + Sync + 'static> SharedObservable<T, AsyncLock> {
     /// associated functions to update it.
     pub async fn write(&self) -> ObservableWriteGuard<'_, T, AsyncLock> {
         ObservableWriteGuard::new(self.state.write().await)
+    }
+
+    /// Attempts to acquire exclusive write access to the inner value.
+    ///
+    /// If it is already locked, returns `None`.
+    pub fn try_write(&self) -> Option<ObservableWriteGuard<'_, T, AsyncLock>> {
+        self.state.try_write().ok().map(|guard| ObservableWriteGuard::new(guard))
     }
 
     /// Set the inner value to the given `value`, notify subscribers and return
