@@ -15,6 +15,10 @@ use tokio_util::sync::ReusableBoxFuture;
 #[cfg(feature = "tracing")]
 use tracing::info;
 
+mod entry;
+
+pub use self::entry::ObservableVectorEntry;
+
 /// An ordered list of elements that broadcasts any changes made to it.
 pub struct ObservableVector<T> {
     values: Vector<T>,
@@ -165,6 +169,37 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
             value
         } else {
             panic!("index out of bounds: the length is {len} but the index is {index}");
+        }
+    }
+
+    /// Gets an [`ObservableVectorEntry`] for the given index, through which
+    /// only the element at that index alone can be updated or removed.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index >= len`.
+    #[track_caller]
+    pub fn entry(&mut self, index: usize) -> ObservableVectorEntry<'_, T> {
+        let len = self.values.len();
+        if index < len {
+            ObservableVectorEntry::new(self, index, None)
+        } else {
+            panic!("index out of bounds: the length is {len} but the index is {index}");
+        }
+    }
+
+    /// Call the given closure for every element in this `ObservableVector`,
+    /// with an entry struct that allows updating or removing that element.
+    ///
+    /// Iteration happens in order, i.e. starting at index `0`.
+    pub fn for_each(&mut self, mut f: impl FnMut(ObservableVectorEntry<'_, T>)) {
+        let mut index = 0;
+        while index < self.len() {
+            let mut removed = false;
+            f(ObservableVectorEntry::new(self, index, Some(&mut removed)));
+            if !removed {
+                index += 1;
+            }
         }
     }
 
