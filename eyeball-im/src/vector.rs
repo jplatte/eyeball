@@ -182,7 +182,7 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
     pub fn entry(&mut self, index: usize) -> ObservableVectorEntry<'_, T> {
         let len = self.values.len();
         if index < len {
-            ObservableVectorEntry::new(self, index, None)
+            ObservableVectorEntry::new(self, index)
         } else {
             panic!("index out of bounds: the length is {len} but the index is {index}");
         }
@@ -195,11 +195,7 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
     pub fn for_each(&mut self, mut f: impl FnMut(ObservableVectorEntry<'_, T>)) {
         let mut index = 0;
         while index < self.len() {
-            let mut removed = false;
-            f(ObservableVectorEntry::new(self, index, Some(&mut removed)));
-            if !removed {
-                index += 1;
-            }
+            f(ObservableVectorEntry::new_borrowed(self, &mut index));
         }
     }
 
