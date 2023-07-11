@@ -1,6 +1,6 @@
 [package]
 name = "eyeball-im"
-version = "0.2.3"
+version = "0.2.4"
 edition = "2021"
 license = "MPL-2.0"
 description = "Observable collections based on the `im` crate."

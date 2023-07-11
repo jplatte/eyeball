@@ -1,3 +1,7 @@
+# 0.2.4
+
+- Add `ObservableVector::entries`
+
 # 0.2.3
 
 - Add `entry` and `for_each` methods to `ObservableVector`
