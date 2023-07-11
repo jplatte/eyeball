@@ -1,3 +1,4 @@
+use futures_util::FutureExt;
 use imbl::{vector, Vector};
 use stream_assert::{assert_next_eq, assert_pending};
 
@@ -64,6 +65,19 @@ fn for_each() {
     assert_next_eq!(sub, VectorDiff::Set { index: 3, value: 2 });
     assert_next_eq!(sub, VectorDiff::Remove { index: 4 });
     assert_pending!(sub);
+}
+
+#[test]
+fn for_each_async() {
+    async fn process_entry(mut entry: ObservableVectorEntry<'_, u16>) {
+        let new_item = *entry + 1;
+        ObservableVectorEntry::set(&mut entry, new_item);
+    }
+
+    let mut ob: ObservableVector<u16> = ObservableVector::from(vector![2, 1]);
+    ob.for_each_async(process_entry).now_or_never().unwrap();
+
+    assert_eq!(ob.into_inner(), vector![3, 2]);
 }
 
 #[test]

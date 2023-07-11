@@ -1,5 +1,7 @@
 use std::{
-    fmt, ops,
+    fmt,
+    future::Future,
+    ops,
     pin::Pin,
     task::{ready, Context, Poll},
 };
@@ -203,6 +205,25 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
         }
     }
 
+    /// Call the given async callback for every element in this
+    /// `ObservableVector`, with an entry struct that allows updating or
+    /// removing that element.
+    ///
+    /// As of Rust 1.70.0, the `f` passed here must be a `fn` / `async fn`, it
+    /// *cannot* be a closure that returns a future. The function must have a
+    /// signature of `async fn (ObservableVectorEntry<'_ T>)` or
+    /// `fn(ObservableVectorEntry<'a, T>) -> impl Future<Output = ()> + 'a`.
+    pub async fn for_each_async(&mut self, mut f: impl for<'a> ForEachAsyncCallback<'a, T>) {
+        let mut index = 0;
+        while index < self.len() {
+            let mut removed = false;
+            f(ObservableVectorEntry::new(self, index, Some(&mut removed))).await;
+            if !removed {
+                index += 1;
+            }
+        }
+    }
+
     fn broadcast_diff(&self, diff: VectorDiff<T>) {
         if self.sender.receiver_count() != 0 {
             let msg = BroadcastMessage { diff, state: self.values.clone() };
@@ -211,6 +232,20 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
             tracing::debug!("New observable value broadcast to {_num_receivers} receivers");
         }
     }
+}
+
+pub trait ForEachAsyncCallback<'a, T: 'a>:
+    FnMut(ObservableVectorEntry<'a, T>) -> Self::Future
+{
+    type Future: Future<Output = ()> + 'a;
+}
+
+impl<'a, T: 'a, F, Fut> ForEachAsyncCallback<'a, T> for F
+where
+    F: FnMut(ObservableVectorEntry<'a, T>) -> Fut,
+    Fut: Future<Output = ()> + 'a,
+{
+    type Future = Fut;
 }
 
 impl<T: Clone + Send + Sync + 'static> Default for ObservableVector<T> {
