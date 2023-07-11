@@ -1,3 +1,7 @@
+# 0.2.3
+
+- Add `entry` and `for_each` methods to `ObservableVector`
+
 # 0.2.2
 
 - Update the lag handling in `VectorSubscriber` to yield a `VectorDiff::Reset`
