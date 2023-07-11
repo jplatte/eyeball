@@ -17,7 +17,7 @@ use tracing::info;
 
 mod entry;
 
-pub use self::entry::ObservableVectorEntry;
+pub use self::entry::{ObservableVectorEntries, ObservableVectorEntry};
 
 /// An ordered list of elements that broadcasts any changes made to it.
 pub struct ObservableVector<T> {
@@ -193,10 +193,34 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
     ///
     /// Iteration happens in order, i.e. starting at index `0`.
     pub fn for_each(&mut self, mut f: impl FnMut(ObservableVectorEntry<'_, T>)) {
-        let mut index = 0;
-        while index < self.len() {
-            f(ObservableVectorEntry::new_borrowed(self, &mut index));
+        let mut entries = self.entries();
+        while let Some(entry) = entries.next() {
+            f(entry);
         }
+    }
+
+    /// Get an iterator over all the entries in this `ObservableVector`.
+    ///
+    /// This is a more flexible, but less convenient alternative to
+    /// [`for_each`][Self::for_each]. If you don't need to use special control
+    /// flow like `.await` or `break` when iterating, it's recommended to use
+    /// that method instead.
+    ///
+    /// Because `std`'s `Iterator` trait does not allow iterator items to borrow
+    /// from the iterator itself, the returned typed does not implement the
+    /// `Iterator` trait and can thus not be used with a `for` loop. Instead,
+    /// you have to call its `.next()` method directly, as in:
+    ///
+    /// ```rust
+    /// # use eyeball_im::ObservableVector;
+    /// # let mut ob = ObservableVector::<u8>::new();
+    /// let mut entries = ob.entries();
+    /// while let Some(entry) = entries.next() {
+    ///     // use entry
+    /// }
+    /// ```
+    pub fn entries(&mut self) -> ObservableVectorEntries<'_, T> {
+        ObservableVectorEntries::new(self)
     }
 
     fn broadcast_diff(&self, diff: VectorDiff<T>) {

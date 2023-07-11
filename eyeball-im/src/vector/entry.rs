@@ -16,7 +16,7 @@ where
         Self { inner, index: EntryIndex::Owned(index) }
     }
 
-    pub(super) fn new_borrowed(inner: &'a mut ObservableVector<T>, index: &'a mut usize) -> Self {
+    fn new_borrowed(inner: &'a mut ObservableVector<T>, index: &'a mut usize) -> Self {
         Self { inner, index: EntryIndex::Borrowed(index) }
     }
 
@@ -100,6 +100,35 @@ impl<'a> EntryIndex<'a> {
                 idx
             }
             EntryIndex::Owned(idx) => *idx,
+        }
+    }
+}
+
+/// An "iterator"¹ that yields entries into an [`ObservableVector`].
+///
+/// ¹ conceptually, though it does not implement `std::iterator::Iterator`
+#[derive(Debug)]
+pub struct ObservableVectorEntries<'a, T> {
+    inner: &'a mut ObservableVector<T>,
+    index: usize,
+}
+
+impl<'a, T> ObservableVectorEntries<'a, T>
+where
+    T: Clone + Send + Sync + 'static,
+{
+    pub(super) fn new(inner: &'a mut ObservableVector<T>) -> Self {
+        Self { inner, index: 0 }
+    }
+
+    /// Advance this iterator, yielding an `ObservableVectorEntry` for the next
+    /// item in the vector, or `None` if all items have been visited.
+    #[allow(clippy::should_implement_trait)]
+    pub fn next(&mut self) -> Option<ObservableVectorEntry<'_, T>> {
+        if self.index < self.inner.len() {
+            Some(ObservableVectorEntry::new_borrowed(self.inner, &mut self.index))
+        } else {
+            None
         }
     }
 }

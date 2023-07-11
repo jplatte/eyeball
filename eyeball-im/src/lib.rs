@@ -6,7 +6,9 @@
 
 mod vector;
 
-pub use vector::{ObservableVector, ObservableVectorEntry, VectorDiff, VectorSubscriber};
+pub use vector::{
+    ObservableVector, ObservableVectorEntries, ObservableVectorEntry, VectorDiff, VectorSubscriber,
+};
 
 #[doc(no_inline)]
 pub use imbl::Vector;
