@@ -74,24 +74,36 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
     /// Append the given elements at the end of the `Vector` and notify
     /// subscribers.
     pub fn append(&mut self, values: Vector<T>) {
+        #[cfg(feature = "tracing")]
+        tracing::debug!(target: "eyeball::vector::update", "append(len = {})", values.len());
+
         self.values.append(values.clone());
         self.broadcast_diff(VectorDiff::Append { values });
     }
 
     /// Clear out all of the elements in this `Vector` and notify subscribers.
     pub fn clear(&mut self) {
+        #[cfg(feature = "tracing")]
+        tracing::debug!(target: "eyeball::vector::update", "clear");
+
         self.values.clear();
         self.broadcast_diff(VectorDiff::Clear);
     }
 
     /// Add an element at the front of the list and notify subscribers.
     pub fn push_front(&mut self, value: T) {
+        #[cfg(feature = "tracing")]
+        tracing::debug!(target: "eyeball::vector::update", "push_front");
+
         self.values.push_front(value.clone());
         self.broadcast_diff(VectorDiff::PushFront { value });
     }
 
     /// Add an element at the back of the list and notify subscribers.
     pub fn push_back(&mut self, value: T) {
+        #[cfg(feature = "tracing")]
+        tracing::debug!(target: "eyeball::vector::update", "push_back");
+
         self.values.push_back(value.clone());
         self.broadcast_diff(VectorDiff::PushBack { value });
     }
@@ -103,6 +115,9 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
     pub fn pop_front(&mut self) -> Option<T> {
         let value = self.values.pop_front();
         if value.is_some() {
+            #[cfg(feature = "tracing")]
+            tracing::debug!(target: "eyeball::vector::update", "pop_front");
+
             self.broadcast_diff(VectorDiff::PopFront);
         }
         value
@@ -115,6 +130,9 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
     pub fn pop_back(&mut self) -> Option<T> {
         let value = self.values.pop_back();
         if value.is_some() {
+            #[cfg(feature = "tracing")]
+            tracing::debug!(target: "eyeball::vector::update", "pop_back");
+
             self.broadcast_diff(VectorDiff::PopBack);
         }
         value
@@ -129,6 +147,9 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
     pub fn insert(&mut self, index: usize, value: T) {
         let len = self.values.len();
         if index <= len {
+            #[cfg(feature = "tracing")]
+            tracing::debug!(target: "eyeball::vector::update", "insert(index = {index})");
+
             self.values.insert(index, value.clone());
             self.broadcast_diff(VectorDiff::Insert { index, value });
         } else {
@@ -146,6 +167,9 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
     pub fn set(&mut self, index: usize, value: T) -> T {
         let len = self.values.len();
         if index < len {
+            #[cfg(feature = "tracing")]
+            tracing::debug!(target: "eyeball::vector::update", "set(index = {index})");
+
             let old_value = self.values.set(index, value.clone());
             self.broadcast_diff(VectorDiff::Set { index, value });
             old_value
@@ -164,6 +188,9 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
     pub fn remove(&mut self, index: usize) -> T {
         let len = self.values.len();
         if index < len {
+            #[cfg(feature = "tracing")]
+            tracing::debug!(target: "eyeball::vector::update", "remove(index = {index})");
+
             let value = self.values.remove(index);
             self.broadcast_diff(VectorDiff::Remove { index });
             value
@@ -228,7 +255,10 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
             let msg = BroadcastMessage { diff, state: self.values.clone() };
             let _num_receivers = self.sender.send(msg).unwrap_or(0);
             #[cfg(feature = "tracing")]
-            tracing::debug!("New observable value broadcast to {_num_receivers} receivers");
+            tracing::debug!(
+                target: "eyeball::vector::broadcast",
+                "New observable value broadcast to {_num_receivers} receivers"
+            );
         }
     }
 }
