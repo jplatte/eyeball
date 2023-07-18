@@ -120,7 +120,7 @@ impl<T> Subscriber<T> {
         ObservableReadGuard::new(self.state.lock())
     }
 
-    fn poll_next_ref(&mut self, cx: &mut Context<'_>) -> Poll<Option<ObservableReadGuard<'_, T>>> {
+    fn poll_next_ref(&mut self, cx: &Context<'_>) -> Poll<Option<ObservableReadGuard<'_, T>>> {
         let state = self.state.lock();
         let version = state.version();
         if version == 0 {
