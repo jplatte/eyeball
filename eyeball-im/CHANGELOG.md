@@ -1,3 +1,7 @@
+# 0.2.5
+
+- Emit more tracing events when the `tracing` Cargo feature is enabled
+
 # 0.2.4
 
 - Add `ObservableVector::entries`
