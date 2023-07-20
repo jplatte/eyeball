@@ -1,3 +1,7 @@
+# 0.8.5
+
+This release only updates metadata for crates.io.
+
 # 0.8.4
 
 - Add `SharedObservable::{try_read, try_write}`
