@@ -1,3 +1,7 @@
+# 0.2.6
+
+This release only updates metadata for crates.io.
+
 # 0.2.5
 
 - Emit more tracing events when the `tracing` Cargo feature is enabled
