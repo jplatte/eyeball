@@ -1,3 +1,7 @@
+# 0.2.2
+
+This release only updates metadata for crates.io.
+
 # 0.2.1
 
 - Export `FilterMapVectorSubscriber` from the crate root
