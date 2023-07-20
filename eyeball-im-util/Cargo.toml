@@ -2,9 +2,11 @@
 name = "eyeball-im-util"
 version = "0.2.1"
 edition = "2021"
-license = "MPL-2.0"
 description = "Helpful utilities for `eyeball-im`."
-repository = "https://github.com/jplatte/eyeball"
+license.workspace = true
+repository.workspace = true
+categories.workspace = true
+keywords.workspace = true
 
 [package.metadata.docs.rs]
 all-features = true

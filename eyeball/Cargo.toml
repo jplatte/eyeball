@@ -3,9 +3,11 @@ name = "eyeball"
 version = "0.8.4"
 edition = "2021"
 rust-version = "1.70.0"
-license = "MPL-2.0"
 description = "Add observability to your Rust types!"
-repository = "https://github.com/jplatte/eyeball"
+license.workspace = true
+repository.workspace = true
+categories.workspace = true
+keywords.workspace = true
 
 [dependencies]
 futures-core.workspace = true

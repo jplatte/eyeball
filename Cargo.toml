@@ -2,6 +2,12 @@
 members = ["eyeball", "eyeball-im", "eyeball-im-util"]
 resolver = "2"
 
+[workspace.package]
+license = "MPL-2.0"
+repository = "https://github.com/jplatte/eyeball"
+categories = ["asynchronous", "gui"]
+keywords = ["async", "observable", "reactive"]
+
 [workspace.dependencies]
 assert_matches = "1.5.0"
 futures-core = "0.3.26"

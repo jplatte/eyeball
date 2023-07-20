@@ -2,9 +2,11 @@
 name = "eyeball-im"
 version = "0.2.5"
 edition = "2021"
-license = "MPL-2.0"
 description = "Observable collections based on the `im` crate."
-repository = "https://github.com/jplatte/eyeball"
+license.workspace = true
+repository.workspace = true
+categories.workspace = true
+keywords.workspace = true
 
 [package.metadata.docs.rs]
 all-features = true
