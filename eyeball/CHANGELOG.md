@@ -1,3 +1,7 @@
+# 0.8.6
+
+This release only updates metadata for docs.rs.
+
 # 0.8.5
 
 This release only updates metadata for crates.io.
