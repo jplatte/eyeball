@@ -9,6 +9,10 @@ repository.workspace = true
 categories.workspace = true
 keywords.workspace = true
 
+[package.metadata.docs.rs]
+features = ["async-lock", "tracing"]
+rustdoc-args = ["--cfg", "docsrs"]
+
 [dependencies]
 futures-core.workspace = true
 readlock.workspace = true
