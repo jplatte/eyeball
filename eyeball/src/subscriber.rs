@@ -83,7 +83,7 @@ impl<T> Subscriber<T> {
     ///
     /// You can use this method to get updates of an `Observable` where the
     /// inner type does not implement `Clone`. However, the `Observable`
-    /// will be locked (not updateable) while any read locks are alive.
+    /// will be locked (not updateable) while any read guards are alive.
     #[must_use]
     pub async fn next_ref(&mut self) -> Option<ObservableReadGuard<'_, T>> {
         // Unclear how to implement this as a named future.
