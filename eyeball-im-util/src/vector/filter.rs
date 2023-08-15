@@ -14,9 +14,9 @@ pin_project! {
     /// [`ObservableVector`]s items.
     ///
     /// Created through [`VectorExt::subscribe_filtered`].
-    pub struct FilterVectorSubscriber<T, F> {
+    pub struct Filter<T, F> {
         #[pin]
-        pub(super) inner: FilteringVectorSubscriberImpl<T>,
+        pub(super) inner: FilterImpl<T>,
         pub(super) filter: F,
     }
 }
@@ -26,15 +26,15 @@ pin_project! {
     /// underlying [`ObservableVector`]s items.
     ///
     /// Created through [`VectorExt::subscribe_filter_mapped`].
-    pub struct FilterMapVectorSubscriber<T, F> {
+    pub struct FilterMap<T, F> {
         #[pin]
-        pub(super) inner: FilteringVectorSubscriberImpl<T>,
+        pub(super) inner: FilterImpl<T>,
         pub(super) filter: F,
     }
 }
 
 pin_project! {
-    pub(super) struct FilteringVectorSubscriberImpl<T> {
+    pub(super) struct FilterImpl<T> {
         #[pin]
         pub(super) inner: VectorSubscriber<T>,
         pub(super) filtered_indices: VecDeque<usize>,
@@ -42,7 +42,7 @@ pin_project! {
     }
 }
 
-impl<T> FilteringVectorSubscriberImpl<T>
+impl<T> FilterImpl<T>
 where
     T: Clone + Send + Sync + 'static,
 {
@@ -338,7 +338,7 @@ where
     }
 }
 
-impl<T: Clone + Send + Sync + 'static, F> Stream for FilterVectorSubscriber<T, F>
+impl<T: Clone + Send + Sync + 'static, F> Stream for Filter<T, F>
 where
     F: Fn(&T) -> bool,
 {
@@ -350,7 +350,7 @@ where
     }
 }
 
-impl<T: Clone + Send + Sync + 'static, U: Clone, F> Stream for FilterMapVectorSubscriber<T, F>
+impl<T: Clone + Send + Sync + 'static, U: Clone, F> Stream for FilterMap<T, F>
 where
     U: Clone,
     F: Fn(T) -> Option<U>,

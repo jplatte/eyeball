@@ -1,11 +1,13 @@
+//! Utilities around [`ObservableVector`].
+
 use std::collections::VecDeque;
 
 use eyeball_im::{ObservableVector, Vector};
 
 mod filter;
 
-use self::filter::FilteringVectorSubscriberImpl;
-pub use self::filter::{FilterMapVectorSubscriber, FilterVectorSubscriber};
+use self::filter::FilterImpl;
+pub use self::filter::{Filter, FilterMap};
 
 /// Extension trait for [`ObservableVector`].
 pub trait VectorExt<T>
@@ -16,7 +18,7 @@ where
     ///
     /// Returns a filtered version of the current vector, and a subscriber to
     /// get updates through.
-    fn subscribe_filter<F>(&self, filter: F) -> (Vector<T>, FilterVectorSubscriber<T, F>)
+    fn subscribe_filter<F>(&self, filter: F) -> (Vector<T>, Filter<T, F>)
     where
         F: Fn(&T) -> bool;
 
@@ -25,7 +27,7 @@ where
     ///
     /// Returns a filtered + mapped version of the current vector, and a
     /// subscriber to get updates through.
-    fn subscribe_filter_map<U, F>(&self, filter: F) -> (Vector<U>, FilterMapVectorSubscriber<T, F>)
+    fn subscribe_filter_map<U, F>(&self, filter: F) -> (Vector<U>, FilterMap<T, F>)
     where
         U: Clone,
         F: Fn(T) -> Option<U>;
@@ -35,7 +37,7 @@ impl<T> VectorExt<T> for ObservableVector<T>
 where
     T: Clone + Send + Sync + 'static,
 {
-    fn subscribe_filter<F>(&self, filter: F) -> (Vector<T>, FilterVectorSubscriber<T, F>)
+    fn subscribe_filter<F>(&self, filter: F) -> (Vector<T>, Filter<T, F>)
     where
         F: Fn(&T) -> bool,
     {
@@ -54,13 +56,13 @@ where
 
         let inner = self.subscribe();
         let original_len = self.len();
-        let inner = FilteringVectorSubscriberImpl { inner, filtered_indices, original_len };
-        let sub = FilterVectorSubscriber { inner, filter };
+        let inner = FilterImpl { inner, filtered_indices, original_len };
+        let sub = Filter { inner, filter };
 
         (v, sub)
     }
 
-    fn subscribe_filter_map<U, F>(&self, filter: F) -> (Vector<U>, FilterMapVectorSubscriber<T, F>)
+    fn subscribe_filter_map<U, F>(&self, filter: F) -> (Vector<U>, FilterMap<T, F>)
     where
         U: Clone,
         F: Fn(T) -> Option<U>,
@@ -75,8 +77,8 @@ where
 
         let inner = self.subscribe();
         let original_len = self.len();
-        let inner = FilteringVectorSubscriberImpl { inner, filtered_indices, original_len };
-        let sub = FilterMapVectorSubscriber { inner, filter };
+        let inner = FilterImpl { inner, filtered_indices, original_len };
+        let sub = FilterMap { inner, filter };
 
         (v, sub)
     }
