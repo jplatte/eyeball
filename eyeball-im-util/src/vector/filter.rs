@@ -16,8 +16,49 @@ pin_project! {
     /// Created through [`VectorExt::subscribe_filtered`].
     pub struct Filter<S, F> {
         #[pin]
-        pub(super) inner: FilterImpl<S>,
-        pub(super) filter: F,
+        inner: FilterImpl<S>,
+        filter: F,
+    }
+}
+
+impl<S, T, F> Filter<S, F>
+where
+    S: Stream<Item = VectorDiff<T>>,
+    T: Clone + Send + Sync + 'static,
+    F: Fn(&T) -> bool,
+{
+    /// Create a new `Filter` with the given (unfiltered) initial values, stream
+    /// of `VectorDiff` updates for those values, and filter.
+    pub fn new(mut values: Vector<T>, inner: S, filter: F) -> (Vector<T>, Self) {
+        let original_len = values.len();
+        let mut filtered_indices = VecDeque::new();
+
+        let mut original_idx = 0;
+        values.retain(|val| {
+            let keep = filter(val);
+            if keep {
+                filtered_indices.push_back(original_idx);
+            }
+            original_idx += 1;
+            keep
+        });
+
+        let inner = FilterImpl { inner, filtered_indices, original_len };
+        (values, Self { inner, filter })
+    }
+}
+
+impl<S, T, F> Stream for Filter<S, F>
+where
+    S: Stream<Item = VectorDiff<T>>,
+    T: Clone + Send + Sync + 'static,
+    F: Fn(&T) -> bool,
+{
+    type Item = VectorDiff<T>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Option<Self::Item>> {
+        let projected = self.project();
+        projected.inner.project().handle_diff_filter(&*projected.filter, cx)
     }
 }
 
@@ -28,8 +69,47 @@ pin_project! {
     /// Created through [`VectorExt::subscribe_filter_mapped`].
     pub struct FilterMap<S, F> {
         #[pin]
-        pub(super) inner: FilterImpl<S>,
-        pub(super) filter: F,
+        inner: FilterImpl<S>,
+        filter: F,
+    }
+}
+
+impl<S, T, U, F> FilterMap<S, F>
+where
+    S: Stream<Item = VectorDiff<T>>,
+    T: Clone + Send + Sync + 'static,
+    U: Clone,
+    F: Fn(T) -> Option<U>,
+{
+    /// Create a new `Filter` with the given (un-filter+mapped) initial values,
+    /// stream of `VectorDiff` updates for those values, and filter.
+    pub fn new(values: Vector<T>, inner: S, filter: F) -> (Vector<U>, Self) {
+        let original_len = values.len();
+        let (values, filtered_indices) = values
+            .iter()
+            .enumerate()
+            .filter_map(|(original_idx, val)| {
+                filter(val.clone()).map(|mapped| (mapped, original_idx))
+            })
+            .unzip();
+
+        let inner = FilterImpl { inner, filtered_indices, original_len };
+        (values, Self { inner, filter })
+    }
+}
+
+impl<S, T, U, F> Stream for FilterMap<S, F>
+where
+    S: Stream<Item = VectorDiff<T>>,
+    T: Clone + Send + Sync + 'static,
+    U: Clone,
+    F: Fn(T) -> Option<U>,
+{
+    type Item = VectorDiff<U>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Option<Self::Item>> {
+        let projected = self.project();
+        projected.inner.project().handle_diff_filter_map(&*projected.filter, cx)
     }
 }
 
@@ -37,9 +117,9 @@ pin_project! {
     #[project = FilterImplProj]
     pub(super) struct FilterImpl<S> {
         #[pin]
-        pub(super) inner: S,
-        pub(super) filtered_indices: VecDeque<usize>,
-        pub(super) original_len: usize,
+        inner: S,
+        filtered_indices: VecDeque<usize>,
+        original_len: usize,
     }
 }
 
@@ -305,34 +385,5 @@ where
                 return Poll::Ready(Some(diff));
             }
         }
-    }
-}
-
-impl<S, T, F> Stream for Filter<S, F>
-where
-    S: Stream<Item = VectorDiff<T>>,
-    T: Clone + Send + Sync + 'static,
-    F: Fn(&T) -> bool,
-{
-    type Item = VectorDiff<T>;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Option<Self::Item>> {
-        let projected = self.project();
-        projected.inner.project().handle_diff_filter(&*projected.filter, cx)
-    }
-}
-
-impl<S, T, U, F> Stream for FilterMap<S, F>
-where
-    S: Stream<Item = VectorDiff<T>>,
-    T: Clone + Send + Sync + 'static,
-    U: Clone,
-    F: Fn(T) -> Option<U>,
-{
-    type Item = VectorDiff<U>;
-
-    fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Option<Self::Item>> {
-        let projected = self.project();
-        projected.inner.project().handle_diff_filter_map(&*projected.filter, cx)
     }
 }
