@@ -75,7 +75,7 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
     /// subscribers.
     pub fn append(&mut self, values: Vector<T>) {
         #[cfg(feature = "tracing")]
-        tracing::debug!(target: "eyeball::vector::update", "append(len = {})", values.len());
+        tracing::debug!(target: "eyeball_im::vector::update", "append(len = {})", values.len());
 
         self.values.append(values.clone());
         self.broadcast_diff(VectorDiff::Append { values });
@@ -84,7 +84,7 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
     /// Clear out all of the elements in this `Vector` and notify subscribers.
     pub fn clear(&mut self) {
         #[cfg(feature = "tracing")]
-        tracing::debug!(target: "eyeball::vector::update", "clear");
+        tracing::debug!(target: "eyeball_im::vector::update", "clear");
 
         self.values.clear();
         self.broadcast_diff(VectorDiff::Clear);
@@ -93,7 +93,7 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
     /// Add an element at the front of the list and notify subscribers.
     pub fn push_front(&mut self, value: T) {
         #[cfg(feature = "tracing")]
-        tracing::debug!(target: "eyeball::vector::update", "push_front");
+        tracing::debug!(target: "eyeball_im::vector::update", "push_front");
 
         self.values.push_front(value.clone());
         self.broadcast_diff(VectorDiff::PushFront { value });
@@ -102,7 +102,7 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
     /// Add an element at the back of the list and notify subscribers.
     pub fn push_back(&mut self, value: T) {
         #[cfg(feature = "tracing")]
-        tracing::debug!(target: "eyeball::vector::update", "push_back");
+        tracing::debug!(target: "eyeball_im::vector::update", "push_back");
 
         self.values.push_back(value.clone());
         self.broadcast_diff(VectorDiff::PushBack { value });
@@ -116,7 +116,7 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
         let value = self.values.pop_front();
         if value.is_some() {
             #[cfg(feature = "tracing")]
-            tracing::debug!(target: "eyeball::vector::update", "pop_front");
+            tracing::debug!(target: "eyeball_im::vector::update", "pop_front");
 
             self.broadcast_diff(VectorDiff::PopFront);
         }
@@ -131,7 +131,7 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
         let value = self.values.pop_back();
         if value.is_some() {
             #[cfg(feature = "tracing")]
-            tracing::debug!(target: "eyeball::vector::update", "pop_back");
+            tracing::debug!(target: "eyeball_im::vector::update", "pop_back");
 
             self.broadcast_diff(VectorDiff::PopBack);
         }
@@ -148,7 +148,7 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
         let len = self.values.len();
         if index <= len {
             #[cfg(feature = "tracing")]
-            tracing::debug!(target: "eyeball::vector::update", "insert(index = {index})");
+            tracing::debug!(target: "eyeball_im::vector::update", "insert(index = {index})");
 
             self.values.insert(index, value.clone());
             self.broadcast_diff(VectorDiff::Insert { index, value });
@@ -168,7 +168,7 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
         let len = self.values.len();
         if index < len {
             #[cfg(feature = "tracing")]
-            tracing::debug!(target: "eyeball::vector::update", "set(index = {index})");
+            tracing::debug!(target: "eyeball_im::vector::update", "set(index = {index})");
 
             let old_value = self.values.set(index, value.clone());
             self.broadcast_diff(VectorDiff::Set { index, value });
@@ -189,7 +189,7 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
         let len = self.values.len();
         if index < len {
             #[cfg(feature = "tracing")]
-            tracing::debug!(target: "eyeball::vector::update", "remove(index = {index})");
+            tracing::debug!(target: "eyeball_im::vector::update", "remove(index = {index})");
 
             let value = self.values.remove(index);
             self.broadcast_diff(VectorDiff::Remove { index });
@@ -256,7 +256,7 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
             let _num_receivers = self.sender.send(msg).unwrap_or(0);
             #[cfg(feature = "tracing")]
             tracing::debug!(
-                target: "eyeball::vector::broadcast",
+                target: "eyeball_im::vector::broadcast",
                 "New observable value broadcast to {_num_receivers} receivers"
             );
         }
