@@ -2,6 +2,6 @@
 //!
 //! The primary entry point of this library is [`VectorExt`].
 
-mod vector;
+pub mod vector;
 
-pub use vector::{FilterMapVectorSubscriber, FilterVectorSubscriber, VectorExt};
+pub use vector::VectorExt;

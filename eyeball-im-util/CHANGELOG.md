@@ -1,3 +1,9 @@
+# unreleased
+
+- Rename / move adapter types
+  - `FilterVectorSubscriber` is now `vector::Filter`
+  - `FilterMapVectorSubscriber` is now `vector::FilterMap`
+
 # 0.2.2
 
 This release only updates metadata for crates.io.
