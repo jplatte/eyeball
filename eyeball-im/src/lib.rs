@@ -4,8 +4,10 @@
 //!
 //! - `tracing`: Emit [tracing] events when updates are sent out
 
+mod hashmap;
 mod vector;
 
+pub use hashmap::{HashMapDiff, ObservableHashMap};
 pub use vector::{
     ObservableVector, ObservableVectorEntries, ObservableVectorEntry, VectorDiff, VectorSubscriber,
 };
