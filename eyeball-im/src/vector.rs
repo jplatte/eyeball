@@ -196,8 +196,8 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
         }
     }
 
-    /// Gets an [`ObservableVectorEntry`] for the given index, through which
-    /// only the element at that index alone can be updated or removed.
+    /// Gets an entry for the given index, through which only the element at
+    /// that index alone can be updated or removed.
     ///
     /// # Panics
     ///
