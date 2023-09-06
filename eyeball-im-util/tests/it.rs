@@ -1,12 +1,12 @@
 use eyeball_im::{ObservableVector, VectorDiff};
-use eyeball_im_util::VectorExt;
+use eyeball_im_util::vector::Filter;
 use imbl::vector;
 use stream_assert::{assert_closed, assert_next_eq, assert_pending};
 
 #[test]
 fn append() {
     let mut ob: ObservableVector<&str> = ObservableVector::new();
-    let (_, mut sub) = ob.subscribe_filter(|s| s.len() < 8);
+    let (_, mut sub) = Filter::new(ob.clone(), ob.subscribe().into_stream(), |s| s.len() < 8);
 
     ob.append(vector!["hello", "world"]);
     assert_next_eq!(sub, VectorDiff::Append { values: vector!["hello", "world"] });
@@ -24,7 +24,7 @@ fn append() {
 #[test]
 fn append_clear() {
     let mut ob: ObservableVector<i32> = ObservableVector::new();
-    let (_, mut sub) = ob.subscribe_filter(|&i| i < 256);
+    let (_, mut sub) = Filter::new(ob.clone(), ob.subscribe().into_stream(), |&i| i < 256);
 
     ob.append(vector![1024]);
     assert_pending!(sub);
@@ -46,7 +46,7 @@ fn append_clear() {
 #[test]
 fn buffering() {
     let mut ob: ObservableVector<i32> = ObservableVector::new();
-    let (_, mut sub) = ob.subscribe_filter(|&i| i < 256);
+    let (_, mut sub) = Filter::new(ob.clone(), ob.subscribe().into_stream(), |&i| i < 256);
 
     ob.append(vector![1024]);
     ob.append(vector![1, 2, 3]);
@@ -63,7 +63,7 @@ fn buffering() {
 #[test]
 fn push_front() {
     let mut ob: ObservableVector<i32> = ObservableVector::new();
-    let (_, mut sub) = ob.subscribe_filter(|&i| i < 256);
+    let (_, mut sub) = Filter::new(ob.clone(), ob.subscribe().into_stream(), |&i| i < 256);
 
     ob.push_front(1);
     assert_next_eq!(sub, VectorDiff::PushFront { value: 1 });
@@ -83,7 +83,7 @@ fn push_front() {
 #[test]
 fn push_back() {
     let mut ob: ObservableVector<i32> = ObservableVector::new();
-    let (_, mut sub) = ob.subscribe_filter(|&i| i < 256);
+    let (_, mut sub) = Filter::new(ob.clone(), ob.subscribe().into_stream(), |&i| i < 256);
 
     ob.push_back(1);
     assert_next_eq!(sub, VectorDiff::PushBack { value: 1 });
@@ -102,7 +102,7 @@ fn push_back() {
 #[test]
 fn push_both() {
     let mut ob: ObservableVector<i32> = ObservableVector::new();
-    let (_, mut sub) = ob.subscribe_filter(|&i| i < 256);
+    let (_, mut sub) = Filter::new(ob.clone(), ob.subscribe().into_stream(), |&i| i < 256);
 
     ob.push_back(1);
     ob.push_front(2);
@@ -123,7 +123,7 @@ fn push_both() {
 #[test]
 fn pop_front() {
     let mut ob: ObservableVector<i32> = ObservableVector::from(vector![1, 2, 3]);
-    let (items, mut sub) = ob.subscribe_filter(|&i| i < 256);
+    let (items, mut sub) = Filter::new(ob.clone(), ob.subscribe().into_stream(), |&i| i < 256);
     assert_eq!(items, vector![1, 2, 3]);
 
     ob.pop_front();
@@ -135,7 +135,7 @@ fn pop_front() {
     assert_pending!(sub);
 
     let mut ob: ObservableVector<i32> = ObservableVector::from(vector![1000, 2, 3000, 4]);
-    let (items, mut sub) = ob.subscribe_filter(|&i| i < 256);
+    let (items, mut sub) = Filter::new(ob.clone(), ob.subscribe().into_stream(), |&i| i < 256);
     assert_eq!(items, vector![2, 4]);
 
     ob.pop_front();
@@ -151,7 +151,7 @@ fn pop_front() {
 #[test]
 fn pop_back() {
     let mut ob: ObservableVector<i32> = ObservableVector::from(vector![1, 2, 3]);
-    let (items, mut sub) = ob.subscribe_filter(|&i| i < 256);
+    let (items, mut sub) = Filter::new(ob.clone(), ob.subscribe().into_stream(), |&i| i < 256);
     assert_eq!(items, vector![1, 2, 3]);
 
     ob.pop_back();
@@ -163,7 +163,7 @@ fn pop_back() {
     assert_pending!(sub);
 
     let mut ob: ObservableVector<i32> = ObservableVector::from(vector![1000, 2, 3000, 4]);
-    let (items, mut sub) = ob.subscribe_filter(|&i| i < 256);
+    let (items, mut sub) = Filter::new(ob.clone(), ob.subscribe().into_stream(), |&i| i < 256);
     assert_eq!(items, vector![2, 4]);
 
     ob.pop_back();
@@ -179,7 +179,7 @@ fn pop_back() {
 #[test]
 fn insert() {
     let mut ob: ObservableVector<i32> = ObservableVector::new();
-    let (_, mut sub) = ob.subscribe_filter(|&i| i < 256);
+    let (_, mut sub) = Filter::new(ob.clone(), ob.subscribe().into_stream(), |&i| i < 256);
 
     ob.insert(0, 256);
     assert_pending!(sub);
@@ -195,7 +195,7 @@ fn insert() {
 
     let mut ob: ObservableVector<i32> =
         ObservableVector::from(vector![1, 2000, 3000, 4000, 5000, 6]);
-    let (_, mut sub) = ob.subscribe_filter(|&i| i < 256);
+    let (_, mut sub) = Filter::new(ob.clone(), ob.subscribe().into_stream(), |&i| i < 256);
     ob.insert(3, 30);
     assert_next_eq!(sub, VectorDiff::Insert { index: 1, value: 30 });
     assert_pending!(sub);
@@ -211,7 +211,7 @@ fn insert() {
 fn set() {
     let mut ob: ObservableVector<i32> =
         ObservableVector::from(vector![0, 1000, 2000, 3000, 4, 5000]);
-    let (_, mut sub) = ob.subscribe_filter(|&i| i < 256);
+    let (_, mut sub) = Filter::new(ob.clone(), ob.subscribe().into_stream(), |&i| i < 256);
 
     ob.set(2, 200);
     assert_next_eq!(sub, VectorDiff::Insert { index: 1, value: 200 });
@@ -229,7 +229,7 @@ fn set() {
 fn remove() {
     let mut ob: ObservableVector<i32> =
         ObservableVector::from(vector![0, 1, 2000, 3000, 4000, 5, 6000]);
-    let (_, mut sub) = ob.subscribe_filter(|&i| i < 256);
+    let (_, mut sub) = Filter::new(ob.clone(), ob.subscribe().into_stream(), |&i| i < 256);
 
     ob.remove(3); // 3000
     assert_pending!(sub);
@@ -250,7 +250,7 @@ fn remove() {
 #[test]
 fn reset() {
     let mut ob: ObservableVector<i32> = ObservableVector::with_capacity(1);
-    let (_, mut sub) = ob.subscribe_filter(|&i| i < 256);
+    let (_, mut sub) = Filter::new(ob.clone(), ob.subscribe().into_stream(), |&i| i < 256);
 
     ob.push_front(0);
     ob.append(vector![1000, 2, 3000, 4]);
