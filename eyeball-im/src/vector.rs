@@ -5,10 +5,15 @@ use tokio::sync::broadcast::{self, Sender};
 
 mod entry;
 mod subscriber;
+mod transaction;
 
 pub use self::{
     entry::{ObservableVectorEntries, ObservableVectorEntry},
-    subscriber::VectorSubscriber,
+    subscriber::{VectorSubscriber, VectorSubscriberBatchedStream, VectorSubscriberStream},
+    transaction::{
+        ObservableVectorTransaction, ObservableVectorTransactionEntries,
+        ObservableVectorTransactionEntry,
+    },
 };
 
 /// An ordered list of elements that broadcasts any changes made to it.
@@ -242,9 +247,17 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
         ObservableVectorEntries::new(self)
     }
 
+    /// Start a new transaction to make multiple updates as one unit.
+    ///
+    /// See [`ObservableVectorTransaction`]s documentation for more details.
+    pub fn transaction(&mut self) -> ObservableVectorTransaction<'_, T> {
+        ObservableVectorTransaction::new(self)
+    }
+
     fn broadcast_diff(&self, diff: VectorDiff<T>) {
         if self.sender.receiver_count() != 0 {
-            let msg = BroadcastMessage { diff, state: self.values.clone() };
+            let msg =
+                BroadcastMessage { diffs: OneOrManyDiffs::One(diff), state: self.values.clone() };
             let _num_receivers = self.sender.send(msg).unwrap_or(0);
             #[cfg(feature = "tracing")]
             tracing::debug!(
@@ -290,8 +303,23 @@ impl<T: Clone + Send + Sync + 'static> From<Vector<T>> for ObservableVector<T> {
 
 #[derive(Clone)]
 struct BroadcastMessage<T> {
-    diff: VectorDiff<T>,
+    diffs: OneOrManyDiffs<T>,
     state: Vector<T>,
+}
+
+#[derive(Clone)]
+enum OneOrManyDiffs<T> {
+    One(VectorDiff<T>),
+    Many(Vec<VectorDiff<T>>),
+}
+
+impl<T> OneOrManyDiffs<T> {
+    fn into_vec(self) -> Vec<VectorDiff<T>> {
+        match self {
+            OneOrManyDiffs::One(diff) => vec![diff],
+            OneOrManyDiffs::Many(diffs) => diffs,
+        }
+    }
 }
 
 /// A change to an [`ObservableVector`].

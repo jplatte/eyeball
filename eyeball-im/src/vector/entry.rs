@@ -76,13 +76,13 @@ impl<T> Drop for ObservableVectorEntry<'_, T> {
     }
 }
 
-enum EntryIndex<'a> {
+pub(super) enum EntryIndex<'a> {
     Borrowed(&'a mut usize),
     Owned(usize),
 }
 
 impl<'a> EntryIndex<'a> {
-    fn value(&self) -> usize {
+    pub(super) fn value(&self) -> usize {
         match self {
             EntryIndex::Borrowed(idx) => **idx,
             EntryIndex::Owned(idx) => *idx,
@@ -92,7 +92,7 @@ impl<'a> EntryIndex<'a> {
     /// Remove the association with the externally-stored index, if any.
     ///
     /// Returns the index value for convenience.
-    fn make_owned(&mut self) -> usize {
+    pub(super) fn make_owned(&mut self) -> usize {
         match self {
             EntryIndex::Borrowed(idx) => {
                 let idx = **idx;

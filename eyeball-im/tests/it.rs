@@ -6,8 +6,8 @@ use eyeball_im::{ObservableVector, ObservableVectorEntry, VectorDiff};
 #[test]
 fn lag() {
     let mut ob = ObservableVector::with_capacity(1);
-    let mut rx1 = ob.subscribe();
-    let mut rx2 = ob.subscribe();
+    let mut rx1 = ob.subscribe().into_stream();
+    let mut rx2 = ob.subscribe().into_stream();
 
     ob.push_back("hello".to_owned());
     assert_next_eq!(rx1, VectorDiff::PushBack { value: "hello".to_owned() });
@@ -23,7 +23,7 @@ fn lag() {
 #[test]
 fn lag2() {
     let mut ob: ObservableVector<i32> = ObservableVector::with_capacity(2);
-    let mut sub = ob.subscribe();
+    let mut sub = ob.subscribe().into_stream();
 
     ob.push_back(0);
     ob.append(vector![1, 2]);
@@ -38,7 +38,7 @@ fn lag2() {
 #[test]
 fn for_each() {
     let mut ob: ObservableVector<i32> = ObservableVector::from(vector![0, 10, 1, 2, 4, 33, 5]);
-    let mut sub = ob.subscribe();
+    let mut sub = ob.subscribe().into_stream();
     let mut saw_five = false;
 
     ob.for_each(|mut item| {

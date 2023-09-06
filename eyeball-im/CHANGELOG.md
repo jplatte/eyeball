@@ -1,3 +1,11 @@
+# unreleased
+
+- Add `ObservableVectorTransaction` for making multiple updates as one atomic
+  unit (created via `observable_vector.transaction()`)
+- Remove `Stream` implementation from `VectorSubscriber` in favor of
+  `.into_stream()` and `.into_batched_stream()` methods that return different
+  stream types
+
 # 0.2.6
 
 This release only updates metadata for crates.io.

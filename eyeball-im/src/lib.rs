@@ -7,7 +7,9 @@
 mod vector;
 
 pub use vector::{
-    ObservableVector, ObservableVectorEntries, ObservableVectorEntry, VectorDiff, VectorSubscriber,
+    ObservableVector, ObservableVectorEntries, ObservableVectorEntry, ObservableVectorTransaction,
+    ObservableVectorTransactionEntries, ObservableVectorTransactionEntry, VectorDiff,
+    VectorSubscriber, VectorSubscriberBatchedStream, VectorSubscriberStream,
 };
 
 #[doc(no_inline)]
