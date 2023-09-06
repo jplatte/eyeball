@@ -9,6 +9,12 @@ use eyeball_im::{Vector, VectorDiff};
 use futures_core::Stream;
 use pin_project_lite::pin_project;
 
+use super::{
+    VectorDiffContainer, VectorDiffContainerFamily, VectorDiffContainerOps,
+    VectorDiffContainerStreamElement, VectorDiffContainerStreamFamily,
+    VectorDiffContainerStreamMappedItem,
+};
+
 pin_project! {
     /// A [`VectorDiff`] stream adapter that presents a filtered view of the
     /// underlying [`ObservableVector`]s items.
@@ -21,15 +27,22 @@ pin_project! {
     }
 }
 
-impl<S, T, F> Filter<S, F>
+impl<S, F> Filter<S, F>
 where
-    S: Stream<Item = VectorDiff<T>>,
-    T: Clone + Send + Sync + 'static,
-    F: Fn(&T) -> bool,
+    S: Stream,
+    S::Item: VectorDiffContainer,
+    VectorDiffContainerStreamElement<S>: Clone + Send + Sync + 'static,
+    VectorDiffContainerStreamFamily<S>:
+        VectorDiffContainerFamily<Member<VectorDiffContainerStreamElement<S>> = S::Item>,
+    F: Fn(&VectorDiffContainerStreamElement<S>) -> bool,
 {
     /// Create a new `Filter` with the given (unfiltered) initial values, stream
     /// of `VectorDiff` updates for those values, and filter.
-    pub fn new(mut values: Vector<T>, inner: S, filter: F) -> (Vector<T>, Self) {
+    pub fn new(
+        mut values: Vector<VectorDiffContainerStreamElement<S>>,
+        inner: S,
+        filter: F,
+    ) -> (Vector<VectorDiffContainerStreamElement<S>>, Self) {
         let original_len = values.len();
         let mut filtered_indices = VecDeque::new();
 
@@ -48,13 +61,16 @@ where
     }
 }
 
-impl<S, T, F> Stream for Filter<S, F>
+impl<S, F> Stream for Filter<S, F>
 where
-    S: Stream<Item = VectorDiff<T>>,
-    T: Clone + Send + Sync + 'static,
-    F: Fn(&T) -> bool,
+    S: Stream,
+    S::Item: VectorDiffContainer,
+    VectorDiffContainerStreamElement<S>: Clone + Send + Sync + 'static,
+    VectorDiffContainerStreamFamily<S>:
+        VectorDiffContainerFamily<Member<VectorDiffContainerStreamElement<S>> = S::Item>,
+    F: Fn(&VectorDiffContainerStreamElement<S>) -> bool,
 {
-    type Item = VectorDiff<T>;
+    type Item = S::Item;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Option<Self::Item>> {
         let projected = self.project();
@@ -74,16 +90,21 @@ pin_project! {
     }
 }
 
-impl<S, T, U, F> FilterMap<S, F>
+impl<S, U, F> FilterMap<S, F>
 where
-    S: Stream<Item = VectorDiff<T>>,
-    T: Clone + Send + Sync + 'static,
+    S: Stream,
+    S::Item: VectorDiffContainer,
+    VectorDiffContainerStreamElement<S>: Clone + Send + Sync + 'static,
     U: Clone,
-    F: Fn(T) -> Option<U>,
+    F: Fn(VectorDiffContainerStreamElement<S>) -> Option<U>,
 {
     /// Create a new `Filter` with the given (un-filter+mapped) initial values,
     /// stream of `VectorDiff` updates for those values, and filter.
-    pub fn new(values: Vector<T>, inner: S, filter: F) -> (Vector<U>, Self) {
+    pub fn new(
+        values: Vector<VectorDiffContainerStreamElement<S>>,
+        inner: S,
+        filter: F,
+    ) -> (Vector<U>, Self) {
         let original_len = values.len();
         let (values, filtered_indices) = values
             .iter()
@@ -98,14 +119,15 @@ where
     }
 }
 
-impl<S, T, U, F> Stream for FilterMap<S, F>
+impl<S, U, F> Stream for FilterMap<S, F>
 where
-    S: Stream<Item = VectorDiff<T>>,
-    T: Clone + Send + Sync + 'static,
+    S: Stream,
+    S::Item: VectorDiffContainer,
+    VectorDiffContainerStreamElement<S>: Clone + Send + Sync + 'static,
     U: Clone,
-    F: Fn(T) -> Option<U>,
+    F: Fn(VectorDiffContainerStreamElement<S>) -> Option<U>,
 {
-    type Item = VectorDiff<U>;
+    type Item = VectorDiffContainerStreamMappedItem<S, U>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Option<Self::Item>> {
         let projected = self.project();
@@ -123,14 +145,19 @@ pin_project! {
     }
 }
 
-impl<S, T> FilterImplProj<'_, S>
+impl<S> FilterImplProj<'_, S>
 where
-    S: Stream<Item = VectorDiff<T>>,
-    T: Clone + Send + Sync + 'static,
+    S: Stream,
+    S::Item: VectorDiffContainer,
+    VectorDiffContainerStreamElement<S>: Clone + Send + Sync + 'static,
 {
-    fn append_filter<F>(&mut self, mut values: Vector<T>, f: &F) -> Option<Vector<T>>
+    fn append_filter<F>(
+        &mut self,
+        mut values: Vector<VectorDiffContainerStreamElement<S>>,
+        f: &F,
+    ) -> Option<Vector<VectorDiffContainerStreamElement<S>>>
     where
-        F: Fn(&T) -> bool,
+        F: Fn(&VectorDiffContainerStreamElement<S>) -> bool,
     {
         let mut original_idx = *self.original_len;
         *self.original_len += values.len();
@@ -146,10 +173,14 @@ where
         values.is_empty().not().then_some(values)
     }
 
-    fn append_filter_map<U, F>(&mut self, values: Vector<T>, f: &F) -> Option<Vector<U>>
+    fn append_filter_map<U, F>(
+        &mut self,
+        values: Vector<VectorDiffContainerStreamElement<S>>,
+        f: &F,
+    ) -> Option<Vector<U>>
     where
         U: Clone,
-        F: Fn(T) -> Option<U>,
+        F: Fn(VectorDiffContainerStreamElement<S>) -> Option<U>,
     {
         let mut original_idx = *self.original_len;
         *self.original_len += values.len();
@@ -168,17 +199,25 @@ where
         mapped_values.is_empty().not().then_some(mapped_values)
     }
 
-    fn handle_append_filter<F>(&mut self, values: Vector<T>, f: &F) -> Option<VectorDiff<T>>
+    fn handle_append_filter<F>(
+        &mut self,
+        values: Vector<VectorDiffContainerStreamElement<S>>,
+        f: &F,
+    ) -> Option<VectorDiff<VectorDiffContainerStreamElement<S>>>
     where
-        F: Fn(&T) -> bool,
+        F: Fn(&VectorDiffContainerStreamElement<S>) -> bool,
     {
         self.append_filter(values, f).map(|values| VectorDiff::Append { values })
     }
 
-    fn handle_append_filter_map<U, F>(&mut self, values: Vector<T>, f: &F) -> Option<VectorDiff<U>>
+    fn handle_append_filter_map<U, F>(
+        &mut self,
+        values: Vector<VectorDiffContainerStreamElement<S>>,
+        f: &F,
+    ) -> Option<VectorDiff<U>>
     where
         U: Clone,
-        F: Fn(T) -> Option<U>,
+        F: Fn(VectorDiffContainerStreamElement<S>) -> Option<U>,
     {
         self.append_filter_map(values, f).map(|values| VectorDiff::Append { values })
     }
@@ -189,10 +228,14 @@ where
         Some(VectorDiff::Clear)
     }
 
-    fn handle_push_front<U, F>(&mut self, value: T, f: &F) -> Option<VectorDiff<U>>
+    fn handle_push_front<U, F>(
+        &mut self,
+        value: VectorDiffContainerStreamElement<S>,
+        f: &F,
+    ) -> Option<VectorDiff<U>>
     where
         U: Clone,
-        F: Fn(T) -> Option<U>,
+        F: Fn(VectorDiffContainerStreamElement<S>) -> Option<U>,
     {
         *self.original_len += 1;
         for idx in &mut *self.filtered_indices {
@@ -205,10 +248,14 @@ where
         })
     }
 
-    fn handle_push_back<U, F>(&mut self, value: T, f: &F) -> Option<VectorDiff<U>>
+    fn handle_push_back<U, F>(
+        &mut self,
+        value: VectorDiffContainerStreamElement<S>,
+        f: &F,
+    ) -> Option<VectorDiff<U>>
     where
         U: Clone,
-        F: Fn(T) -> Option<U>,
+        F: Fn(VectorDiffContainerStreamElement<S>) -> Option<U>,
     {
         let original_idx = *self.original_len;
         *self.original_len += 1;
@@ -239,10 +286,15 @@ where
         })
     }
 
-    fn handle_insert<U, F>(&mut self, index: usize, value: T, f: &F) -> Option<VectorDiff<U>>
+    fn handle_insert<U, F>(
+        &mut self,
+        index: usize,
+        value: VectorDiffContainerStreamElement<S>,
+        f: &F,
+    ) -> Option<VectorDiff<U>>
     where
         U: Clone,
-        F: Fn(T) -> Option<U>,
+        F: Fn(VectorDiffContainerStreamElement<S>) -> Option<U>,
     {
         let original_idx = index;
         let index = self.filtered_indices.partition_point(|&i| i < original_idx);
@@ -256,10 +308,15 @@ where
         })
     }
 
-    fn handle_set<U, F>(&mut self, index: usize, value: T, f: &F) -> Option<VectorDiff<U>>
+    fn handle_set<U, F>(
+        &mut self,
+        index: usize,
+        value: VectorDiffContainerStreamElement<S>,
+        f: &F,
+    ) -> Option<VectorDiff<U>>
     where
         U: Clone,
-        F: Fn(T) -> Option<U>,
+        F: Fn(VectorDiffContainerStreamElement<S>) -> Option<U>,
     {
         let original_idx = index;
         let new_value = f(value);
@@ -301,41 +358,47 @@ where
         result
     }
 
-    fn handle_reset_filter<F>(&mut self, values: Vector<T>, f: &F) -> Option<VectorDiff<T>>
+    fn handle_reset_filter<F>(
+        &mut self,
+        values: Vector<VectorDiffContainerStreamElement<S>>,
+        f: &F,
+    ) -> Option<VectorDiff<VectorDiffContainerStreamElement<S>>>
     where
-        F: Fn(&T) -> bool,
+        F: Fn(&VectorDiffContainerStreamElement<S>) -> bool,
     {
         self.filtered_indices.clear();
         *self.original_len = 0;
         self.append_filter(values, f).map(|values| VectorDiff::Reset { values })
     }
 
-    fn handle_reset_filter_map<U, F>(&mut self, values: Vector<T>, f: &F) -> Option<VectorDiff<U>>
+    fn handle_reset_filter_map<U, F>(
+        &mut self,
+        values: Vector<VectorDiffContainerStreamElement<S>>,
+        f: &F,
+    ) -> Option<VectorDiff<U>>
     where
         U: Clone,
-        F: Fn(T) -> Option<U>,
+        F: Fn(VectorDiffContainerStreamElement<S>) -> Option<U>,
     {
         self.filtered_indices.clear();
         *self.original_len = 0;
         self.append_filter_map(values, f).map(|values| VectorDiff::Reset { values })
     }
 
-    fn handle_diff_filter<F>(
-        &mut self,
-        f: &F,
-        cx: &mut task::Context<'_>,
-    ) -> Poll<Option<VectorDiff<T>>>
+    fn handle_diff_filter<F>(&mut self, f: &F, cx: &mut task::Context<'_>) -> Poll<Option<S::Item>>
     where
-        F: Fn(&T) -> bool,
+        F: Fn(&VectorDiffContainerStreamElement<S>) -> bool,
+        VectorDiffContainerStreamFamily<S>:
+            VectorDiffContainerFamily<Member<VectorDiffContainerStreamElement<S>> = S::Item>,
     {
         // Transform filter function into filter_map function.
         let f2 = |value| f(&value).then_some(value);
         loop {
-            let Some(diff) = ready!(self.inner.as_mut().poll_next(cx)) else {
+            let Some(diffs) = ready!(self.inner.as_mut().poll_next(cx)) else {
                 return Poll::Ready(None);
             };
 
-            let result = match diff {
+            let result = diffs.filter_map(|diff| match diff {
                 VectorDiff::Append { values } => self.handle_append_filter(values, f),
                 VectorDiff::Clear => self.handle_clear(),
                 VectorDiff::PushFront { value } => self.handle_push_front(value, &f2),
@@ -346,10 +409,10 @@ where
                 VectorDiff::Set { index, value } => self.handle_set(index, value, &f2),
                 VectorDiff::Remove { index } => self.handle_remove(index),
                 VectorDiff::Reset { values } => self.handle_reset_filter(values, f),
-            };
+            });
 
-            if let Some(diff) = result {
-                return Poll::Ready(Some(diff));
+            if let Some(diffs) = result {
+                return Poll::Ready(Some(diffs));
             }
         }
     }
@@ -358,17 +421,17 @@ where
         &mut self,
         f: &F,
         cx: &mut task::Context<'_>,
-    ) -> Poll<Option<VectorDiff<U>>>
+    ) -> Poll<Option<VectorDiffContainerStreamMappedItem<S, U>>>
     where
         U: Clone,
-        F: Fn(T) -> Option<U>,
+        F: Fn(VectorDiffContainerStreamElement<S>) -> Option<U>,
     {
         loop {
-            let Some(diff) = ready!(self.inner.as_mut().poll_next(cx)) else {
+            let Some(diffs) = ready!(self.inner.as_mut().poll_next(cx)) else {
                 return Poll::Ready(None);
             };
 
-            let result = match diff {
+            let result = diffs.filter_map(|diff| match diff {
                 VectorDiff::Append { values } => self.handle_append_filter_map(values, f),
                 VectorDiff::Clear => self.handle_clear(),
                 VectorDiff::PushFront { value } => self.handle_push_front(value, f),
@@ -379,10 +442,10 @@ where
                 VectorDiff::Set { index, value } => self.handle_set(index, value, f),
                 VectorDiff::Remove { index } => self.handle_remove(index),
                 VectorDiff::Reset { values } => self.handle_reset_filter_map(values, f),
-            };
+            });
 
-            if let Some(diff) = result {
-                return Poll::Ready(Some(diff));
+            if let Some(diffs) = result {
+                return Poll::Ready(Some(diffs));
             }
         }
     }
