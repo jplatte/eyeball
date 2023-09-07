@@ -1,4 +1,4 @@
-# unreleased
+# 0.3.0
 
 - Add `ObservableVectorTransaction` for making multiple updates as one atomic
   unit (created via `observable_vector.transaction()`)

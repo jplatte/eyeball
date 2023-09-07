@@ -1,6 +1,6 @@
 [package]
 name = "eyeball-im"
-version = "0.2.6"
+version = "0.3.0"
 edition = "2021"
 description = "Observable collections based on the `im` crate."
 license.workspace = true
