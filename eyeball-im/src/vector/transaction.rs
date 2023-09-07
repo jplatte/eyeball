@@ -287,7 +287,9 @@ impl<T: Clone> ops::Deref for ObservableVectorTransaction<'_, T> {
 impl<T: Clone> Drop for ObservableVectorTransaction<'_, T> {
     fn drop(&mut self) {
         #[cfg(feature = "tracing")]
-        tracing::debug!("rollback (drop)");
+        if !self.batch.is_empty() {
+            tracing::debug!("rollback (drop)");
+        }
     }
 }
 
