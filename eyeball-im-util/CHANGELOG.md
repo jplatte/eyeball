@@ -1,5 +1,8 @@
-# unreleased
+# 0.3.0
 
+- Upgrade `eyeball-im` dependency to 0.3.0
+  - Make adapter types compatible with new batched streams
+  - Remove `VectorExt` as it didn't fit in very well with the new stream types
 - Rename / move adapter types
   - `FilterVectorSubscriber` is now `vector::Filter`
   - `FilterMapVectorSubscriber` is now `vector::FilterMap`
