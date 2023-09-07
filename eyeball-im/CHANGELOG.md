@@ -1,3 +1,7 @@
+# 0.3.2
+
+- Fix transaction commit not working when there are no subscribers
+
 # 0.3.1
 
 - Fix logging for rollback-on-drop
