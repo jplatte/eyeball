@@ -18,8 +18,6 @@ use super::{
 pin_project! {
     /// A [`VectorDiff`] stream adapter that presents a filtered view of the
     /// underlying [`ObservableVector`]s items.
-    ///
-    /// Created through [`VectorExt::subscribe_filtered`].
     pub struct Filter<S, F> {
         #[pin]
         inner: FilterImpl<S>,
@@ -81,8 +79,6 @@ where
 pin_project! {
     /// A [`VectorDiff`] stream adapter that presents a filter+mapped view of
     /// the underlying [`ObservableVector`]s items.
-    ///
-    /// Created through [`VectorExt::subscribe_filter_mapped`].
     pub struct FilterMap<S, F> {
         #[pin]
         inner: FilterImpl<S>,
