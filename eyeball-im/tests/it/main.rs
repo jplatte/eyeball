@@ -3,6 +3,7 @@ use stream_assert::{assert_next_eq, assert_pending};
 
 use eyeball_im::{ObservableVector, ObservableVectorEntry, VectorDiff};
 
+mod batch;
 mod entry;
 
 #[test]
@@ -66,4 +67,41 @@ fn for_each() {
     assert_next_eq!(sub, VectorDiff::Set { index: 3, value: 2 });
     assert_next_eq!(sub, VectorDiff::Remove { index: 4 });
     assert_pending!(sub);
+}
+
+#[test]
+fn transaction() {
+    let mut ob = ObservableVector::new();
+    let mut st = ob.subscribe().into_stream();
+    let mut txn = ob.transaction();
+
+    txn.push_back(0);
+    assert_pending!(st);
+
+    txn.push_front(-1);
+    assert_pending!(st);
+
+    txn.commit();
+    assert_next_eq!(st, VectorDiff::PushBack { value: 0 });
+    assert_next_eq!(st, VectorDiff::PushFront { value: -1 });
+}
+
+#[test]
+fn transaction_rollback() {
+    let mut ob = ObservableVector::new();
+    let mut st = ob.subscribe().into_stream();
+
+    let mut txn = ob.transaction();
+    txn.push_back(1);
+    drop(txn);
+
+    assert_pending!(st);
+
+    let mut txn = ob.transaction();
+    txn.push_back(0);
+    txn.rollback();
+    txn.insert(0, 123);
+    txn.commit();
+
+    assert_next_eq!(st, VectorDiff::Insert { index: 0, value: 123 });
 }
