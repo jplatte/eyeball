@@ -33,6 +33,8 @@ impl<'o, T: Clone + Send + Sync + 'static> ObservableVectorTransaction<'o, T> {
         #[cfg(feature = "tracing")]
         tracing::debug!("commit");
 
+        self.inner.values = mem::take(&mut self.values);
+
         if self.batch.is_empty() {
             #[cfg(feature = "tracing")]
             tracing::trace!(
@@ -40,10 +42,8 @@ impl<'o, T: Clone + Send + Sync + 'static> ObservableVectorTransaction<'o, T> {
                 "Skipping broadcast of empty list of diffs"
             );
         } else {
-            self.inner.values = self.values.clone();
-
             let diffs = OneOrManyDiffs::Many(mem::take(&mut self.batch));
-            let msg = BroadcastMessage { diffs, state: mem::take(&mut self.values) };
+            let msg = BroadcastMessage { diffs, state: self.inner.values.clone() };
             let _num_receivers = self.inner.sender.send(msg).unwrap_or(0);
             #[cfg(feature = "tracing")]
             tracing::debug!(

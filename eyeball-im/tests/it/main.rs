@@ -105,3 +105,16 @@ fn transaction_rollback() {
 
     assert_next_eq!(st, VectorDiff::Insert { index: 0, value: 123 });
 }
+
+#[test]
+fn transaction_no_subscribers() {
+    let mut ob = ObservableVector::new();
+    let mut txn = ob.transaction();
+    txn.push_back(0);
+    txn.rollback();
+    txn.insert(0, 123);
+    txn.push_front(45);
+    txn.commit();
+
+    assert_eq!(*ob, vector![45, 123]);
+}
