@@ -1,3 +1,7 @@
+# 0.3.1
+
+- Fix logging for rollback-on-drop
+
 # 0.3.0
 
 - Add `ObservableVectorTransaction` for making multiple updates as one atomic
