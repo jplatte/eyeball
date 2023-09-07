@@ -1,4 +1,4 @@
-use std::{fmt, ops};
+use std::{fmt, mem, ops};
 
 use imbl::Vector;
 
@@ -29,7 +29,10 @@ impl<'o, T: Clone + Send + Sync + 'static> ObservableVectorTransaction<'o, T> {
 
     /// Commit this transaction, persisting the changes and notifying
     /// subscribers.
-    pub fn commit(self) {
+    pub fn commit(mut self) {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("commit");
+
         if self.batch.is_empty() {
             #[cfg(feature = "tracing")]
             tracing::trace!(
@@ -39,8 +42,8 @@ impl<'o, T: Clone + Send + Sync + 'static> ObservableVectorTransaction<'o, T> {
         } else {
             self.inner.values = self.values.clone();
 
-            let diffs = OneOrManyDiffs::Many(self.batch);
-            let msg = BroadcastMessage { diffs, state: self.values };
+            let diffs = OneOrManyDiffs::Many(mem::take(&mut self.batch));
+            let msg = BroadcastMessage { diffs, state: mem::take(&mut self.values) };
             let _num_receivers = self.inner.sender.send(msg).unwrap_or(0);
             #[cfg(feature = "tracing")]
             tracing::debug!(
@@ -54,6 +57,9 @@ impl<'o, T: Clone + Send + Sync + 'static> ObservableVectorTransaction<'o, T> {
     ///
     /// Same as dropping the transaction and starting a new one, semantically.
     pub fn rollback(&mut self) {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("rollback (explicit)");
+
         self.values = self.inner.values.clone();
         self.batch.clear();
     }
@@ -62,7 +68,10 @@ impl<'o, T: Clone + Send + Sync + 'static> ObservableVectorTransaction<'o, T> {
     /// subscribers.
     pub fn append(&mut self, values: Vector<T>) {
         #[cfg(feature = "tracing")]
-        tracing::debug!(target: "eyeball_im::vector::update", "append(len = {})", values.len());
+        tracing::debug!(
+            target: "eyeball_im::vector::transaction::update",
+            "append(len = {})", values.len()
+        );
 
         self.values.append(values.clone());
         self.add_to_batch(VectorDiff::Append { values });
@@ -71,7 +80,7 @@ impl<'o, T: Clone + Send + Sync + 'static> ObservableVectorTransaction<'o, T> {
     /// Clear out all of the elements in this `Vector` and notify subscribers.
     pub fn clear(&mut self) {
         #[cfg(feature = "tracing")]
-        tracing::debug!(target: "eyeball_im::vector::update", "clear");
+        tracing::debug!(target: "eyeball_im::vector::transaction::update", "clear");
 
         self.values.clear();
         self.batch.clear(); // All previous batched updates are irrelevant now
@@ -81,7 +90,7 @@ impl<'o, T: Clone + Send + Sync + 'static> ObservableVectorTransaction<'o, T> {
     /// Add an element at the front of the list and notify subscribers.
     pub fn push_front(&mut self, value: T) {
         #[cfg(feature = "tracing")]
-        tracing::debug!(target: "eyeball_im::vector::update", "push_front");
+        tracing::debug!(target: "eyeball_im::vector::transaction::update", "push_front");
 
         self.values.push_front(value.clone());
         self.add_to_batch(VectorDiff::PushFront { value });
@@ -90,7 +99,7 @@ impl<'o, T: Clone + Send + Sync + 'static> ObservableVectorTransaction<'o, T> {
     /// Add an element at the back of the list and notify subscribers.
     pub fn push_back(&mut self, value: T) {
         #[cfg(feature = "tracing")]
-        tracing::debug!(target: "eyeball_im::vector::update", "push_back");
+        tracing::debug!(target: "eyeball_im::vector::transaction::update", "push_back");
 
         self.values.push_back(value.clone());
         self.add_to_batch(VectorDiff::PushBack { value });
@@ -104,7 +113,7 @@ impl<'o, T: Clone + Send + Sync + 'static> ObservableVectorTransaction<'o, T> {
         let value = self.values.pop_front();
         if value.is_some() {
             #[cfg(feature = "tracing")]
-            tracing::debug!(target: "eyeball_im::vector::update", "pop_front");
+            tracing::debug!(target: "eyeball_im::vector::transaction::update", "pop_front");
 
             self.add_to_batch(VectorDiff::PopFront);
         }
@@ -119,7 +128,7 @@ impl<'o, T: Clone + Send + Sync + 'static> ObservableVectorTransaction<'o, T> {
         let value = self.values.pop_back();
         if value.is_some() {
             #[cfg(feature = "tracing")]
-            tracing::debug!(target: "eyeball_im::vector::update", "pop_back");
+            tracing::debug!(target: "eyeball_im::vector::transaction::update", "pop_back");
 
             self.add_to_batch(VectorDiff::PopBack);
         }
@@ -136,7 +145,10 @@ impl<'o, T: Clone + Send + Sync + 'static> ObservableVectorTransaction<'o, T> {
         let len = self.values.len();
         if index <= len {
             #[cfg(feature = "tracing")]
-            tracing::debug!(target: "eyeball_im::vector::update", "insert(index = {index})");
+            tracing::debug!(
+                target: "eyeball_im::vector::transaction::update",
+                "insert(index = {index})"
+            );
 
             self.values.insert(index, value.clone());
             self.add_to_batch(VectorDiff::Insert { index, value });
@@ -156,7 +168,10 @@ impl<'o, T: Clone + Send + Sync + 'static> ObservableVectorTransaction<'o, T> {
         let len = self.values.len();
         if index < len {
             #[cfg(feature = "tracing")]
-            tracing::debug!(target: "eyeball_im::vector::update", "set(index = {index})");
+            tracing::debug!(
+                target: "eyeball_im::vector::transaction::update",
+                "set(index = {index})"
+            );
 
             let old_value = self.values.set(index, value.clone());
             self.add_to_batch(VectorDiff::Set { index, value });
@@ -177,7 +192,10 @@ impl<'o, T: Clone + Send + Sync + 'static> ObservableVectorTransaction<'o, T> {
         let len = self.values.len();
         if index < len {
             #[cfg(feature = "tracing")]
-            tracing::debug!(target: "eyeball_im::vector::update", "remove(index = {index})");
+            tracing::debug!(
+                target: "eyeball_im::vector::transaction::update",
+                "remove(index = {index})"
+            );
 
             let value = self.values.remove(index);
             self.add_to_batch(VectorDiff::Remove { index });
@@ -263,6 +281,13 @@ impl<T: Clone> ops::Deref for ObservableVectorTransaction<'_, T> {
 
     fn deref(&self) -> &Self::Target {
         &self.values
+    }
+}
+
+impl<T: Clone> Drop for ObservableVectorTransaction<'_, T> {
+    fn drop(&mut self) {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("rollback (drop)");
     }
 }
 
