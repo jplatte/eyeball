@@ -1,3 +1,9 @@
+# 0.3.1
+
+- Fix a bug with `Filter` and `FilterMap` that was corrupting their internal
+  state, leading to invalid output or panics, when the underlying stream
+  produced a `VectorDiff::Insert`
+
 # 0.3.0
 
 - Upgrade `eyeball-im` dependency to 0.3.0
