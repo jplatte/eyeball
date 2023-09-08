@@ -4,6 +4,19 @@ use imbl::vector;
 use stream_assert::{assert_next_eq, assert_pending};
 
 #[test]
+fn insert_len_tracking() {
+    let mut ob: ObservableVector<i32> = ObservableVector::new();
+    let (_, mut sub) =
+        FilterMap::new(ob.clone(), ob.subscribe().into_batched_stream(), |i| u8::try_from(i).ok());
+
+    ob.insert(0, -1);
+    assert_pending!(sub);
+
+    ob.remove(0);
+    assert_pending!(sub);
+}
+
+#[test]
 fn filter_map_batch() {
     let mut ob: ObservableVector<i32> = ObservableVector::new();
     let (_, mut sub) =

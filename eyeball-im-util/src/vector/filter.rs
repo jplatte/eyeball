@@ -292,6 +292,7 @@ where
         U: Clone,
         F: Fn(VectorDiffContainerStreamElement<S>) -> Option<U>,
     {
+        *self.original_len += 1;
         let original_idx = index;
         let index = self.filtered_indices.partition_point(|&i| i < original_idx);
         for idx in self.filtered_indices.iter_mut().skip(index) {
