@@ -19,6 +19,7 @@ pin-project-lite = "0.2.9"
 
 [dev-dependencies]
 stream_assert.workspace = true
+eyeball = { version = "0.8.6", path = "../eyeball" }
 
 [lints]
 workspace = true
