@@ -205,6 +205,20 @@ impl<'o, T: Clone + Send + Sync + 'static> ObservableVectorTransaction<'o, T> {
         }
     }
 
+    /// Truncate the vector to `len` elements and notify subscribers.
+    ///
+    /// Does nothing if `len` is greater or equal to the vector's current
+    /// length.
+    pub fn truncate(&mut self, len: usize) {
+        if len < self.len() {
+            #[cfg(feature = "tracing")]
+            tracing::debug!(target: "eyeball_im::vector::update", "truncate(len = {len})");
+
+            self.values.truncate(len);
+            self.add_to_batch(VectorDiff::Truncate { length: len });
+        }
+    }
+
     /// Gets an entry for the given index through which only the element at that
     /// index alone can be updated or removed.
     ///

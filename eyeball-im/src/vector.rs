@@ -196,6 +196,20 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
         }
     }
 
+    /// Truncate the vector to `len` elements and notify subscribers.
+    ///
+    /// Does nothing if `len` is greater or equal to the vector's current
+    /// length.
+    pub fn truncate(&mut self, len: usize) {
+        if len < self.len() {
+            #[cfg(feature = "tracing")]
+            tracing::debug!(target: "eyeball_im::vector::update", "truncate(len = {len})");
+
+            self.values.truncate(len);
+            self.broadcast_diff(VectorDiff::Truncate { length: len });
+        }
+    }
+
     /// Gets an entry for the given index, through which only the element at
     /// that index alone can be updated or removed.
     ///
@@ -368,6 +382,11 @@ pub enum VectorDiff<T> {
         /// The index that the removed element had.
         index: usize,
     },
+    /// Truncation of the vector.
+    Truncate {
+        /// The number of elements that remain.
+        length: usize,
+    },
     /// The subscriber lagged too far behind, and the next update that should
     /// have been received has already been discarded from the internal buffer.
     Reset {
@@ -390,6 +409,7 @@ impl<T: Clone> VectorDiff<T> {
             VectorDiff::Insert { index, value } => VectorDiff::Insert { index, value: f(value) },
             VectorDiff::Set { index, value } => VectorDiff::Set { index, value: f(value) },
             VectorDiff::Remove { index } => VectorDiff::Remove { index },
+            VectorDiff::Truncate { length } => VectorDiff::Truncate { length },
             VectorDiff::Reset { values } => VectorDiff::Reset { values: vector_map(values, f) },
         }
     }

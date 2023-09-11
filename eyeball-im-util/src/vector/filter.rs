@@ -136,7 +136,14 @@ pin_project! {
     pub(super) struct FilterImpl<S> {
         #[pin]
         inner: S,
+        // Original indices of the elements the filter was applied to.
+        //
+        // For example, if the first element of this list is 1, that means the
+        // first original element got filtered out so a set for index = 1 should
+        // translate to a set for index = 0 on the filtered elements (if the
+        // filter still matches after the set operation).
         filtered_indices: VecDeque<usize>,
+        // Length of the original vector (before filter).
         original_len: usize,
     }
 }
@@ -355,6 +362,15 @@ where
         result
     }
 
+    fn handle_truncate<U>(&mut self, len: usize) -> Option<VectorDiff<U>> {
+        *self.original_len = len;
+        let new_filtered_len = self.filtered_indices.iter().take_while(|&&idx| idx < len).count();
+        (new_filtered_len < self.filtered_indices.len()).then(|| {
+            self.filtered_indices.truncate(new_filtered_len);
+            VectorDiff::Truncate { length: new_filtered_len }
+        })
+    }
+
     fn handle_reset_filter<F>(
         &mut self,
         values: Vector<VectorDiffContainerStreamElement<S>>,
@@ -405,6 +421,7 @@ where
                 VectorDiff::Insert { index, value } => self.handle_insert(index, value, &f2),
                 VectorDiff::Set { index, value } => self.handle_set(index, value, &f2),
                 VectorDiff::Remove { index } => self.handle_remove(index),
+                VectorDiff::Truncate { length } => self.handle_truncate(length),
                 VectorDiff::Reset { values } => self.handle_reset_filter(values, f),
             });
 
@@ -438,6 +455,7 @@ where
                 VectorDiff::Insert { index, value } => self.handle_insert(index, value, f),
                 VectorDiff::Set { index, value } => self.handle_set(index, value, f),
                 VectorDiff::Remove { index } => self.handle_remove(index),
+                VectorDiff::Truncate { length } => self.handle_truncate(length),
                 VectorDiff::Reset { values } => self.handle_reset_filter_map(values, f),
             });
 

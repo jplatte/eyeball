@@ -248,6 +248,55 @@ fn remove() {
 }
 
 #[test]
+fn truncate_matching_prefix() {
+    let mut ob: ObservableVector<i32> = ObservableVector::from(vector![5, 1, 10, -1, -2, -10]);
+    let (_, mut sub) = Filter::new(ob.clone(), ob.subscribe().into_stream(), |&i| i > 0);
+
+    ob.truncate(4); // remove some non-matching elements
+    assert_pending!(sub);
+
+    ob.truncate(3); // remove remaining non-matching element
+    assert_pending!(sub);
+
+    ob.truncate(1); // remove some matching elements
+    assert_next_eq!(sub, VectorDiff::Truncate { length: 1 });
+}
+
+#[test]
+fn truncate_matching_suffix() {
+    let mut ob: ObservableVector<i32> = ObservableVector::from(vector![-1, -2, -10, 5, 1, 10]);
+    let (_, mut sub) = Filter::new(ob.clone(), ob.subscribe().into_stream(), |&i| i > 0);
+
+    ob.truncate(5); // remove one matching elements
+    assert_next_eq!(sub, VectorDiff::Truncate { length: 2 });
+
+    ob.truncate(3); // remove remaining matching elements
+    assert_next_eq!(sub, VectorDiff::Truncate { length: 0 });
+
+    ob.truncate(1); // remove some non-matching elements
+    assert_pending!(sub);
+}
+
+#[test]
+fn truncate_complex() {
+    let mut ob: ObservableVector<i32> =
+        ObservableVector::from(vector![-17, 5, 1, -5, 10, -1, -2, 10]);
+    let (_, mut sub) = Filter::new(ob.clone(), ob.subscribe().into_stream(), |&i| i > 0);
+
+    ob.truncate(6); // remove non-matching, matching
+    assert_next_eq!(sub, VectorDiff::Truncate { length: 3 });
+
+    ob.truncate(4); // remove matching, non-matching
+    assert_next_eq!(sub, VectorDiff::Truncate { length: 2 });
+
+    ob.truncate(1); // remove 2 x matching, 1 x non-matching
+    assert_next_eq!(sub, VectorDiff::Truncate { length: 0 });
+
+    ob.truncate(0); // remove last non-matching
+    assert_pending!(sub);
+}
+
+#[test]
 fn reset() {
     let mut ob: ObservableVector<i32> = ObservableVector::with_capacity(1);
     let (_, mut sub) = Filter::new(ob.clone(), ob.subscribe().into_stream(), |&i| i < 256);

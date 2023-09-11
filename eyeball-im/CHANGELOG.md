@@ -1,3 +1,8 @@
+# unreleased
+
+- Add `truncate` method to `ObservableVector`, `ObservableVectorTransaction`
+  - Add `VectorDiff::Truncate { length: usize }`
+
 # 0.3.2
 
 - Fix transaction commit not working when there are no subscribers

@@ -39,6 +39,25 @@ fn lag2() {
 }
 
 #[test]
+fn truncate() {
+    let mut ob: ObservableVector<i32> = ObservableVector::from(vector![1, 2]);
+    let mut sub = ob.subscribe().into_stream();
+
+    ob.truncate(3);
+    ob.truncate(2);
+    assert_pending!(sub);
+    assert_eq!(*ob, vector![1, 2]);
+
+    ob.truncate(1);
+    assert_next_eq!(sub, VectorDiff::Truncate { length: 1 });
+    assert_eq!(*ob, vector![1]);
+
+    ob.truncate(0);
+    assert_next_eq!(sub, VectorDiff::Truncate { length: 0 });
+    assert!(ob.is_empty());
+}
+
+#[test]
 fn for_each() {
     let mut ob: ObservableVector<i32> = ObservableVector::from(vector![0, 10, 1, 2, 4, 33, 5]);
     let mut sub = ob.subscribe().into_stream();
