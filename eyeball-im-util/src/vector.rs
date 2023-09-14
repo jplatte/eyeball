@@ -3,6 +3,8 @@
 mod filter;
 mod limit;
 
+use std::collections::VecDeque;
+
 use eyeball_im::VectorDiff;
 use futures_core::Stream;
 
@@ -48,6 +50,10 @@ pub trait VectorDiffContainerOps<T> {
 
     fn from_item(vector_diff: VectorDiff<T>) -> Self;
 
+    fn pick_item(vector_diffs: &mut VecDeque<Self>) -> Option<Self>
+    where
+        Self: Sized;
+
     fn for_each(self, f: impl FnMut(VectorDiff<T>));
 
     fn filter_map<U>(
@@ -61,6 +67,13 @@ impl<T> VectorDiffContainerOps<T> for VectorDiff<T> {
 
     fn from_item(vector_diff: VectorDiff<T>) -> Self {
         vector_diff
+    }
+
+    fn pick_item(vector_diffs: &mut VecDeque<Self>) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        vector_diffs.pop_front()
     }
 
     fn for_each(self, mut f: impl FnMut(VectorDiff<T>)) {
@@ -80,6 +93,13 @@ impl<T> VectorDiffContainerOps<T> for Vec<VectorDiff<T>> {
 
     fn from_item(vector_diff: VectorDiff<T>) -> Self {
         vec![vector_diff]
+    }
+
+    fn pick_item(vector_diffs: &mut VecDeque<Self>) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        Some(vector_diffs.drain(..).flatten().collect())
     }
 
     fn for_each(self, f: impl FnMut(VectorDiff<T>)) {

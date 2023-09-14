@@ -112,9 +112,9 @@ where
     L: Stream<Item = usize>,
 {
     fn poll_next(&mut self, cx: &mut task::Context<'_>) -> Poll<Option<S::Item>> {
-        // First off, if any value is ready, let's return it.
-        if let Some(ready_value) = self.ready_values.pop_front() {
-            return Poll::Ready(Some(ready_value));
+        // First off, if any values are ready, let's return them.
+        if !self.ready_values.is_empty() {
+            return Poll::Ready(S::Item::pick_item(self.ready_values));
         }
 
         // Let's poll a new limit from `limit_stream` before polling `inner_stream`.
@@ -134,10 +134,12 @@ where
         // Now, let's consume and apply the diffs if possible.
         diffs.for_each(|diff| self.apply_diff(diff));
 
-        // If any value is ready, let's return it.
-        match self.ready_values.pop_front() {
-            Some(diff) => Poll::Ready(Some(diff)),
-            None => Poll::Pending,
+        // If any values are ready, let's return them.
+        if self.ready_values.is_empty() {
+            cx.waker().wake_by_ref();
+            Poll::Pending
+        } else {
+            Poll::Ready(S::Item::pick_item(self.ready_values))
         }
     }
 
