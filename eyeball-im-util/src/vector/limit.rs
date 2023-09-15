@@ -1,6 +1,7 @@
 use std::{
     cmp::{min, Ordering},
     collections::VecDeque,
+    mem,
     pin::Pin,
     task::{self, ready, Poll},
 };
@@ -11,7 +12,7 @@ use super::{
 };
 use eyeball_im::VectorDiff;
 use futures_core::Stream;
-use imbl::{vector, Vector};
+use imbl::Vector;
 use pin_project_lite::pin_project;
 
 pin_project! {
@@ -73,7 +74,7 @@ where
     /// stream of `VectorDiff` updates for those values, and a stream of
     /// limits.
     ///
-    /// Note that this adapter won't produce anything until a new limit is
+    /// Note that this adapter won't produce anything until the first limit is
     /// polled.
     pub fn new(
         initial_values: Vector<VectorDiffContainerStreamElement<S>>,
@@ -147,7 +148,7 @@ where
         let limit = *self.limit;
         let length = self.buffered_vector.len();
 
-        // Let's update the `buffered_vector`. It's a replica of the original observed
+        // Update the `buffered_vector`. It's a replica of the original observed
         // `Vector`. We need to maintain it in order to be able to produce valid
         // `VectorDiff`s when items are missing.
         self.update_buffered_vector(&diff);
@@ -158,7 +159,6 @@ where
         }
 
         let is_full = length >= limit;
-        let has_values_after_limit = length > limit;
 
         match diff {
             VectorDiff::Append { mut values } => {
@@ -193,17 +193,13 @@ where
             VectorDiff::PopFront => {
                 self.push_ready_value(VectorDiff::PopFront);
 
-                if has_values_after_limit {
+                if let Some(diff) = self.buffered_vector.get(limit - 1) {
                     // Push back a new item.
-                    self.push_ready_value(VectorDiff::PushBack {
-                        // SAFETY: It's safe to `unwrap` here as we are sure a value exists at index
-                        // `limit - 1`. We are also sure that `limit > 1`.
-                        value: self.buffered_vector.get(limit - 1).unwrap().clone(),
-                    });
+                    self.push_ready_value(VectorDiff::PushBack { value: diff.clone() });
                 }
             }
             VectorDiff::PopBack => {
-                if has_values_after_limit {
+                if length > limit {
                     // Pop back outside the limit, let's ignore the diff.
                 } else {
                     self.push_ready_value(VectorDiff::PopBack);
@@ -235,13 +231,9 @@ where
                 } else {
                     self.push_ready_value(VectorDiff::Remove { index });
 
-                    if has_values_after_limit {
-                        self.push_ready_value(VectorDiff::PushBack {
-                            // SAFETY: It's safe to `unwrap` here as we are sure a value exists at
-                            // index `limit - 1`. We are also sure that
-                            // `limit > 1`.
-                            value: self.buffered_vector.get(limit - 1).unwrap().clone(),
-                        });
+                    if let Some(diff) = self.buffered_vector.get(limit - 1) {
+                        // Push back a new item.
+                        self.push_ready_value(VectorDiff::PushBack { value: diff.clone() });
                     }
                 }
             }
@@ -309,46 +301,42 @@ where
     ///
     /// It's OK to have a `new_limit` larger than the length of the `Vector`.
     /// The `new_limit` won't be capped.
-    fn update_limit(&mut self, next_limit: usize) -> Option<S::Item> {
-        if self.buffered_vector.is_empty() {
-            // Let's update the limit.
-            *self.limit = next_limit;
+    fn update_limit(&mut self, new_limit: usize) -> Option<S::Item> {
+        // Let's update the limit.
+        let old_limit = mem::replace(self.limit, new_limit);
 
-            // But let's ignore any update.
+        if self.buffered_vector.is_empty() {
+            // If empty, nothing to do.
             return None;
         }
 
-        match (*self.limit).cmp(&next_limit) {
+        match old_limit.cmp(&new_limit) {
             // old < new
             Ordering::Less => {
-                // Let's add the missing items.
-                let mut missing_items = vector![];
+                let missing_items = self
+                    .buffered_vector
+                    .iter()
+                    .skip(old_limit)
+                    .take(new_limit - old_limit)
+                    .cloned()
+                    .collect::<Vector<_>>();
 
-                for nth in *self.limit..min(self.buffered_vector.len(), next_limit) {
-                    // SAFETY: It's OK to `unwrap` here as we are sure we are iterating over defined
-                    // items.
-                    let item = self.buffered_vector.get(nth).unwrap();
-                    missing_items.push_back(item.clone());
+                if missing_items.is_empty() {
+                    None
+                } else {
+                    // Let's add the missing items.
+                    Some(S::Item::from_item(VectorDiff::Append { values: missing_items }))
                 }
-
-                // Let's update the limit.
-                *self.limit = next_limit;
-
-                let missing_items =
-                    S::Item::from_item(VectorDiff::Append { values: missing_items });
-
-                Some(missing_items)
             }
 
             // old > new
             Ordering::Greater => {
-                // Let's remove the extra items.
-                let items_removal = S::Item::from_item(VectorDiff::Truncate { length: next_limit });
-
-                // Let's update the limit.
-                *self.limit = next_limit;
-
-                Some(items_removal)
+                if self.buffered_vector.len() <= new_limit {
+                    None
+                } else {
+                    // Let's remove the extra items.
+                    Some(S::Item::from_item(VectorDiff::Truncate { length: new_limit }))
+                }
             }
 
             // old == new

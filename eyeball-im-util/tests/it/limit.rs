@@ -75,6 +75,18 @@ fn increase_and_decrease_the_limit_only() {
     // Observe 2 more values.
     assert_next_eq!(sub, VectorDiff::Append { values: vector![12, 13] });
 
+    // Set limit to 6.
+    Observable::set(&mut limit, 6);
+
+    // Observe nothing.
+    assert_pending!(sub);
+
+    // Set limit to 5.
+    Observable::set(&mut limit, 5);
+
+    // Observe nothing.
+    assert_pending!(sub);
+
     // Set limit to 1.
     Observable::set(&mut limit, 1);
 
