@@ -1,11 +1,17 @@
 //! Utilities around [`ObservableVector`][eyeball_im::ObservableVector].
 
 mod filter;
+mod limit;
+
+use std::collections::VecDeque;
 
 use eyeball_im::VectorDiff;
 use futures_core::Stream;
 
-pub use self::filter::{Filter, FilterMap};
+pub use self::{
+    filter::{Filter, FilterMap},
+    limit::DynamicLimit,
+};
 
 /// Abstraction over stream items that the adapters in this module can deal
 /// with.
@@ -42,6 +48,14 @@ pub type VectorDiffContainerStreamMappedItem<S, U> =
 pub trait VectorDiffContainerOps<T> {
     type Family: VectorDiffContainerFamily;
 
+    fn from_item(vector_diff: VectorDiff<T>) -> Self;
+
+    fn pick_item(vector_diffs: &mut VecDeque<Self>) -> Option<Self>
+    where
+        Self: Sized;
+
+    fn for_each(self, f: impl FnMut(VectorDiff<T>));
+
     fn filter_map<U>(
         self,
         f: impl FnMut(VectorDiff<T>) -> Option<VectorDiff<U>>,
@@ -50,6 +64,21 @@ pub trait VectorDiffContainerOps<T> {
 
 impl<T> VectorDiffContainerOps<T> for VectorDiff<T> {
     type Family = VectorDiffFamily;
+
+    fn from_item(vector_diff: VectorDiff<T>) -> Self {
+        vector_diff
+    }
+
+    fn pick_item(vector_diffs: &mut VecDeque<Self>) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        vector_diffs.pop_front()
+    }
+
+    fn for_each(self, mut f: impl FnMut(VectorDiff<T>)) {
+        f(self);
+    }
 
     fn filter_map<U>(
         self,
@@ -61,6 +90,21 @@ impl<T> VectorDiffContainerOps<T> for VectorDiff<T> {
 
 impl<T> VectorDiffContainerOps<T> for Vec<VectorDiff<T>> {
     type Family = VecVectorDiffFamily;
+
+    fn from_item(vector_diff: VectorDiff<T>) -> Self {
+        vec![vector_diff]
+    }
+
+    fn pick_item(vector_diffs: &mut VecDeque<Self>) -> Option<Self>
+    where
+        Self: Sized,
+    {
+        Some(vector_diffs.drain(..).flatten().collect())
+    }
+
+    fn for_each(self, f: impl FnMut(VectorDiff<T>)) {
+        self.into_iter().for_each(f);
+    }
 
     fn filter_map<U>(
         self,
