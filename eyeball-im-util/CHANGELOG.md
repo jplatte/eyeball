@@ -1,5 +1,6 @@
-# Unreleased
+# 0.4.0
 
+- Upgrade `eyeball-im` dependency to 0.4.0
 - Add `Limit` adapter for presenting a limited view of an underlying observable
   vector
 
