@@ -162,34 +162,30 @@ where
     L: Stream<Item = usize>,
 {
     fn poll_next(&mut self, cx: &mut task::Context<'_>) -> Poll<Option<S::Item>> {
-        // First off, if any values are ready, let's return them.
-        if !self.ready_values.is_empty() {
-            return Poll::Ready(S::Item::pick_item(self.ready_values));
-        }
-
-        // Let's poll a new limit from `limit_stream` before polling `inner_stream`.
-        if let Poll::Ready(Some(next_limit)) = self.limit_stream.as_mut().poll_next(cx) {
-            // We have new `VectorDiff`s after the limit has been updated. Let's
-            // return them.
-            if let Some(diffs) = self.update_limit(next_limit) {
-                return Poll::Ready(Some(diffs));
+        loop {
+            // First off, if any values are ready, return them.
+            if !self.ready_values.is_empty() {
+                return Poll::Ready(S::Item::pick_item(self.ready_values));
             }
-        }
 
-        // Now, let's poll `VectorDiff`s from the `inner_stream`.
-        let Some(diffs) = ready!(self.inner_stream.as_mut().poll_next(cx)) else {
-            return Poll::Ready(None);
-        };
+            // Poll a new limit from `limit_stream` before polling `inner_stream`.
+            if let Poll::Ready(Some(next_limit)) = self.limit_stream.as_mut().poll_next(cx) {
+                // We have new `VectorDiff`s after the limit has been updated.
+                // Return them.
+                if let Some(diffs) = self.update_limit(next_limit) {
+                    return Poll::Ready(Some(diffs));
+                }
+            }
 
-        // Now, let's consume and apply the diffs if possible.
-        diffs.for_each(|diff| self.apply_diff(diff));
+            // Poll `VectorDiff`s from the `inner_stream`.
+            let Some(diffs) = ready!(self.inner_stream.as_mut().poll_next(cx)) else {
+                return Poll::Ready(None);
+            };
 
-        // If any values are ready, let's return them.
-        if self.ready_values.is_empty() {
-            cx.waker().wake_by_ref();
-            Poll::Pending
-        } else {
-            Poll::Ready(S::Item::pick_item(self.ready_values))
+            // Consume and apply the diffs if possible.
+            diffs.for_each(|diff| self.apply_diff(diff));
+
+            // Loop, checking for ready values again.
         }
     }
 
