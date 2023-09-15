@@ -1,4 +1,4 @@
-# unreleased
+# 0.4.0
 
 - Add `truncate` method to `ObservableVector`, `ObservableVectorTransaction`
   - Add `VectorDiff::Truncate { length: usize }`
