@@ -19,20 +19,19 @@ pin_project! {
     /// A [`VectorDiff`] stream adapter that presents a limited view of the
     /// underlying [`ObservableVector`]s items.
     ///
-    /// For example, let `S` be a `Stream<Item = VectorDiff>`. The `Vector` represented
-    /// by `S` can have any length, but one may want to virtually _limit_ this `Vector`
-    /// to a certain size. Then this `DynamicLimit` adapter is well appropriate.
-    /// The limit is dynamic, i.e. it changes over time based on values that are polled
-    /// from another `Stream` (ref. [`Self::limit_stream`]).
+    /// For example, let `S` be a `Stream<Item = VectorDiff>`. The `Vector`
+    /// represented by `S` can have any length, but one may want to virtually
+    /// _limit_ this `Vector` to a certain size. Then this `Limit` adapter is
+    /// appropriate.
     ///
-    /// Because the limit is dynamic, an internal buffered vector is kept, so that
-    /// the adapter knows which values can be added when the limit is increased, or
-    /// when values are removed and new values must be inserted. This fact is important
-    /// if the items of the `Vector` have a non-negligible size.
+    /// An internal buffered vector is kept so that the adapter knows which
+    /// values can be added when the limit is increased, or when values are
+    /// removed and new values must be inserted. This fact is important if the
+    /// items of the `Vector` have a non-negligible size.
     ///
     /// It's OK to have a limit larger than the length of the observed `Vector`.
-    #[project = DynamicLimitProj]
-    pub struct DynamicLimit<S, L>
+    #[project = LimitProj]
+    pub struct Limit<S, L>
     where
         S: Stream,
         S::Item: VectorDiffContainer,
@@ -45,8 +44,8 @@ pin_project! {
         #[pin]
         limit_stream: L,
 
-        // The buffered vector that is updated with the main stream's items. It's
-        // used to provide missing items, e.g. when the limit increases.
+        // The buffered vector that is updated with the main stream's items.
+        // It's used to provide missing items, e.g. when the limit increases.
         buffered_vector: Vector<VectorDiffContainerStreamElement<S>>,
 
         // The current limit.
@@ -61,7 +60,29 @@ pin_project! {
     }
 }
 
-impl<S, L> DynamicLimit<S, L>
+impl<S> Limit<S, EmptyLimitStream>
+where
+    S: Stream,
+    S::Item: VectorDiffContainer,
+    VectorDiffContainerStreamElement<S>: Clone + Send + Sync + 'static,
+    VectorDiffContainerStreamFamily<S>:
+        VectorDiffContainerFamily<Member<VectorDiffContainerStreamElement<S>> = S::Item>,
+{
+    /// Create a new [`Limit`] with the given (unlimited) initial values,
+    /// stream of `VectorDiff` updates for those values, and a fixed limit.
+    ///
+    /// Returns the truncated initial values as well as a stream of updates that
+    /// ensure that the resulting vector never exceeds the given limit.
+    pub fn new(
+        initial_values: Vector<VectorDiffContainerStreamElement<S>>,
+        inner_stream: S,
+        limit: usize,
+    ) -> (Vector<VectorDiffContainerStreamElement<S>>, Self) {
+        Self::dynamic_with_initial_limit(initial_values, inner_stream, limit, EmptyLimitStream)
+    }
+}
+
+impl<S, L> Limit<S, L>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
@@ -70,13 +91,16 @@ where
         VectorDiffContainerFamily<Member<VectorDiffContainerStreamElement<S>> = S::Item>,
     L: Stream<Item = usize>,
 {
-    /// Create a new [`DynamicLimit`] with the given (unlimited) initial values,
-    /// stream of `VectorDiff` updates for those values, and a stream of
-    /// limits.
+    /// Create a new [`Limit`] with the given (unlimited) initial values, stream
+    /// of `VectorDiff` updates for those values, and a stream of limits.
     ///
-    /// Note that this adapter won't produce anything until the first limit is
-    /// polled.
-    pub fn new(
+    /// This is equivalent to `dynamic_with_initial_limit` where the
+    /// `initial_limit` is 0, except that it doesn't return the limited
+    /// vector as it would be empty anyways.
+    ///
+    /// Note that the returned `Limit` won't produce anything until the first
+    /// limit is produced by the limit stream.
+    pub fn dynamic(
         initial_values: Vector<VectorDiffContainerStreamElement<S>>,
         inner_stream: S,
         limit_stream: L,
@@ -89,9 +113,34 @@ where
             ready_values: VecDeque::new(),
         }
     }
+
+    /// Create a new [`Limit`] with the given (unlimited) initial values, stream
+    /// of `VectorDiff` updates for those values, and an initial limit as well
+    /// as a stream of new limits.
+    pub fn dynamic_with_initial_limit(
+        mut initial_values: Vector<VectorDiffContainerStreamElement<S>>,
+        inner_stream: S,
+        initial_limit: usize,
+        limit_stream: L,
+    ) -> (Vector<VectorDiffContainerStreamElement<S>>, Self) {
+        let buffered_vector = initial_values.clone();
+        if initial_limit < initial_values.len() {
+            initial_values.truncate(initial_limit);
+        }
+
+        let stream = Self {
+            inner_stream,
+            limit_stream,
+            buffered_vector,
+            limit: initial_limit,
+            ready_values: VecDeque::new(),
+        };
+
+        (initial_values, stream)
+    }
 }
 
-impl<S, L> Stream for DynamicLimit<S, L>
+impl<S, L> Stream for Limit<S, L>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
@@ -105,7 +154,7 @@ where
     }
 }
 
-impl<S, L> DynamicLimitProj<'_, S, L>
+impl<S, L> LimitProj<'_, S, L>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
@@ -345,5 +394,18 @@ where
                 None
             }
         }
+    }
+}
+
+/// An empty stream with an item type of `usize`.
+#[derive(Debug)]
+#[non_exhaustive]
+pub struct EmptyLimitStream;
+
+impl Stream for EmptyLimitStream {
+    type Item = usize;
+
+    fn poll_next(self: Pin<&mut Self>, _cx: &mut task::Context<'_>) -> Poll<Option<Self::Item>> {
+        Poll::Ready(None)
     }
 }

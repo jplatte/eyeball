@@ -1,3 +1,8 @@
+# Unreleased
+
+- Add `Limit` adapter for presenting a limited view of an underlying observable
+  vector
+
 # 0.3.1
 
 - Fix a bug with `Filter` and `FilterMap` that was corrupting their internal

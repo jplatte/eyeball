@@ -10,7 +10,7 @@ use futures_core::Stream;
 
 pub use self::{
     filter::{Filter, FilterMap},
-    limit::DynamicLimit,
+    limit::{EmptyLimitStream, Limit},
 };
 
 /// Abstraction over stream items that the adapters in this module can deal
