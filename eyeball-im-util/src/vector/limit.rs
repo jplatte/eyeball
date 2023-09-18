@@ -1,13 +1,13 @@
 use std::{
     cmp::{min, Ordering},
-    collections::VecDeque,
     mem,
     pin::Pin,
     task::{self, ready, Poll},
 };
 
 use super::{
-    VectorDiffContainer, VectorDiffContainerOps, VectorDiffContainerStreamElement, VectorObserver,
+    VectorDiffContainer, VectorDiffContainerOps, VectorDiffContainerStreamElement,
+    VectorDiffContainerStreamLimitBuf, VectorObserver,
 };
 use arrayvec::ArrayVec;
 use eyeball_im::VectorDiff;
@@ -51,12 +51,16 @@ pin_project! {
         // The current limit.
         limit: usize,
 
-        // This adapter is not a basic filter: It can produce items. For example, if the
-        // vector is [10, 11, 12, 13], with a limit of 2; then if an item is popped
-        // at the front, 10 is removed, but 12 is pushed back as it “enters” the “view”. That's
-        // 2 items to produce. This field contains all items that must be polled before
-        // anything.
-        ready_values: VecDeque<S::Item>,
+        // This adapter is not a basic filter: It can produce up to two items
+        // per item of the underlying stream.
+        //
+        // Thus, if the item type is just `VectorDiff<_>` (non-bached, can't
+        // just add diffs to a poll_next result), we need a buffer to store the
+        // possible extra item in. For example if the vector is [10, 11, 12]
+        // with a limit of 2 on top: if an item is popped at the front then 10
+        // is removed, but 12 has to be pushed back as it "enters" the "view".
+        // That second `PushBack` diff is buffered here.
+        ready_values: VectorDiffContainerStreamLimitBuf<S>,
     }
 }
 
@@ -104,7 +108,7 @@ where
             limit_stream,
             buffered_vector: initial_values,
             limit: 0,
-            ready_values: VecDeque::new(),
+            ready_values: Default::default(),
         }
     }
 
@@ -169,8 +173,8 @@ where
     fn poll_next(&mut self, cx: &mut task::Context<'_>) -> Poll<Option<S::Item>> {
         loop {
             // First off, if any values are ready, return them.
-            if !self.ready_values.is_empty() {
-                return Poll::Ready(S::Item::pick_item(self.ready_values));
+            if let Some(value) = S::Item::pop_from_buffer(self.ready_values) {
+                return Poll::Ready(Some(value));
             }
 
             // Poll a new limit from `limit_stream` before polling `inner_stream`.
@@ -190,7 +194,7 @@ where
             };
 
             // Consume and apply the diffs if possible.
-            diffs.for_each(|diff| {
+            let ready = diffs.push_into_buffer(self.ready_values, |diff| {
                 let limit = *self.limit;
                 let prev_len = self.buffered_vector.len();
 
@@ -198,14 +202,13 @@ where
                 // `Vector`. We need to maintain it in order to be able to produce valid
                 // `VectorDiff`s when items are missing.
                 update_buffered_vector(&diff, self.buffered_vector);
-                self.ready_values.extend(
-                    handle_diff(diff, limit, prev_len, self.buffered_vector)
-                        .into_iter()
-                        .map(S::Item::from_item),
-                );
+                handle_diff(diff, limit, prev_len, self.buffered_vector)
             });
+            if let Some(diff) = ready {
+                return Poll::Ready(Some(diff));
+            }
 
-            // Loop, checking for ready values again.
+            // Else loop and poll the streams again.
         }
     }
 

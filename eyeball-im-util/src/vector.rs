@@ -37,3 +37,8 @@ type VectorDiffContainerStreamFamily<S> =
 
 /// Type alias for a `VectorDiff` of `VectorDiffContainerStreamElement`s.
 type VectorDiffContainerDiff<S> = VectorDiff<VectorDiffContainerStreamElement<S>>;
+
+/// Type alias for extracting the buffer type from a stream of
+/// [`VectorDiffContainer`]s.
+type VectorDiffContainerStreamLimitBuf<S> =
+    <<S as Stream>::Item as VectorDiffContainerOps<VectorDiffContainerStreamElement<S>>>::Buffer;

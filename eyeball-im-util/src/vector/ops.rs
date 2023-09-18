@@ -1,22 +1,24 @@
-use std::collections::VecDeque;
-
+use arrayvec::ArrayVec;
 use eyeball_im::VectorDiff;
 
-pub trait VectorDiffContainerOps<T> {
+pub trait VectorDiffContainerOps<T>: Sized {
     type Family: VectorDiffContainerFamily;
+    type Buffer: Default;
 
     fn from_item(vector_diff: VectorDiff<T>) -> Self;
-
-    fn pick_item(vector_diffs: &mut VecDeque<Self>) -> Option<Self>
-    where
-        Self: Sized;
-
-    fn for_each(self, f: impl FnMut(VectorDiff<T>));
 
     fn filter_map<U>(
         self,
         f: impl FnMut(VectorDiff<T>) -> Option<VectorDiff<U>>,
     ) -> Option<VectorDiffContainerFamilyMember<Self::Family, U>>;
+
+    fn push_into_buffer(
+        self,
+        buffer: &mut Self::Buffer,
+        make_diffs: impl FnMut(VectorDiff<T>) -> ArrayVec<VectorDiff<T>, 2>,
+    ) -> Option<Self>;
+
+    fn pop_from_buffer(buffer: &mut Self::Buffer) -> Option<Self>;
 }
 
 #[allow(unreachable_pub)]
@@ -24,20 +26,10 @@ pub type VectorDiffContainerFamilyMember<F, U> = <F as VectorDiffContainerFamily
 
 impl<T> VectorDiffContainerOps<T> for VectorDiff<T> {
     type Family = VectorDiffFamily;
+    type Buffer = Option<VectorDiff<T>>;
 
     fn from_item(vector_diff: VectorDiff<T>) -> Self {
         vector_diff
-    }
-
-    fn pick_item(vector_diffs: &mut VecDeque<Self>) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        vector_diffs.pop_front()
-    }
-
-    fn for_each(self, mut f: impl FnMut(VectorDiff<T>)) {
-        f(self);
     }
 
     fn filter_map<U>(
@@ -46,24 +38,36 @@ impl<T> VectorDiffContainerOps<T> for VectorDiff<T> {
     ) -> Option<VectorDiffContainerFamilyMember<Self::Family, U>> {
         f(self)
     }
+
+    fn push_into_buffer(
+        self,
+        buffer: &mut Self::Buffer,
+        mut make_diffs: impl FnMut(VectorDiff<T>) -> ArrayVec<VectorDiff<T>, 2>,
+    ) -> Option<Self> {
+        assert!(buffer.is_none(), "buffer must be None when calling push_into_buffer");
+
+        let mut diffs = make_diffs(self);
+
+        let last = diffs.pop();
+        if let Some(first) = diffs.pop() {
+            *buffer = last;
+            Some(first)
+        } else {
+            last
+        }
+    }
+
+    fn pop_from_buffer(buffer: &mut Self::Buffer) -> Option<Self> {
+        buffer.take()
+    }
 }
 
 impl<T> VectorDiffContainerOps<T> for Vec<VectorDiff<T>> {
     type Family = VecVectorDiffFamily;
+    type Buffer = ();
 
     fn from_item(vector_diff: VectorDiff<T>) -> Self {
         vec![vector_diff]
-    }
-
-    fn pick_item(vector_diffs: &mut VecDeque<Self>) -> Option<Self>
-    where
-        Self: Sized,
-    {
-        Some(vector_diffs.drain(..).flatten().collect())
-    }
-
-    fn for_each(self, f: impl FnMut(VectorDiff<T>)) {
-        self.into_iter().for_each(f);
     }
 
     fn filter_map<U>(
@@ -76,6 +80,23 @@ impl<T> VectorDiffContainerOps<T> for Vec<VectorDiff<T>> {
         } else {
             Some(res)
         }
+    }
+
+    fn push_into_buffer(
+        self,
+        _buffer: &mut (),
+        make_diffs: impl FnMut(VectorDiff<T>) -> ArrayVec<VectorDiff<T>, 2>,
+    ) -> Option<Self> {
+        let res: Vec<_> = self.into_iter().flat_map(make_diffs).collect();
+        if res.is_empty() {
+            None
+        } else {
+            Some(res)
+        }
+    }
+
+    fn pop_from_buffer(_: &mut Self::Buffer) -> Option<Self> {
+        None
     }
 }
 
