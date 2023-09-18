@@ -28,7 +28,6 @@ impl<S, F> Filter<S, F>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
-    VectorDiffContainerStreamElement<S>: Clone + Send + Sync + 'static,
     F: Fn(&VectorDiffContainerStreamElement<S>) -> bool,
 {
     /// Create a new `Filter` with the given (unfiltered) initial values, stream
@@ -60,7 +59,6 @@ impl<S, F> Stream for Filter<S, F>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
-    VectorDiffContainerStreamElement<S>: Clone + Send + Sync + 'static,
     F: Fn(&VectorDiffContainerStreamElement<S>) -> bool,
 {
     type Item = S::Item;
@@ -85,7 +83,6 @@ impl<S, U, F> FilterMap<S, F>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
-    VectorDiffContainerStreamElement<S>: Clone + Send + Sync + 'static,
     U: Clone,
     F: Fn(VectorDiffContainerStreamElement<S>) -> Option<U>,
 {
@@ -114,7 +111,6 @@ impl<S, U, F> Stream for FilterMap<S, F>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
-    VectorDiffContainerStreamElement<S>: Clone + Send + Sync + 'static,
     U: Clone,
     F: Fn(VectorDiffContainerStreamElement<S>) -> Option<U>,
 {
@@ -147,7 +143,6 @@ impl<S> FilterImplProj<'_, S>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
-    VectorDiffContainerStreamElement<S>: Clone + Send + Sync + 'static,
 {
     fn append_filter<F>(
         &mut self,

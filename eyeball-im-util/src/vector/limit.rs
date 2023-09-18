@@ -64,7 +64,6 @@ impl<S> Limit<S, EmptyLimitStream>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
-    VectorDiffContainerStreamElement<S>: Clone + Send + Sync + 'static,
 {
     /// Create a new [`Limit`] with the given (unlimited) initial values,
     /// stream of `VectorDiff` updates for those values, and a fixed limit.
@@ -84,7 +83,6 @@ impl<S, L> Limit<S, L>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
-    VectorDiffContainerStreamElement<S>: Clone + Send + Sync + 'static,
     L: Stream<Item = usize>,
 {
     /// Create a new [`Limit`] with the given (unlimited) initial values, stream
@@ -140,7 +138,6 @@ impl<S, L> Stream for Limit<S, L>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
-    VectorDiffContainerStreamElement<S>: Clone + Send + Sync + 'static,
     L: Stream<Item = usize>,
 {
     type Item = S::Item;
@@ -154,7 +151,6 @@ impl<S, L> LimitProj<'_, S, L>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
-    VectorDiffContainerStreamElement<S>: Clone + Send + Sync + 'static,
     L: Stream<Item = usize>,
 {
     fn poll_next(&mut self, cx: &mut task::Context<'_>) -> Poll<Option<S::Item>> {
