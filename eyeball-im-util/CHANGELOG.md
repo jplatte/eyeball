@@ -1,3 +1,10 @@
+# 0.5.0
+
+- Move bounds to simplify documentation
+  - Technically a breaking change, which is why this version is 0.5.0
+- Add `VectorSubscriberExt` and `VectorObserverExt` for fluent adapter
+  construction
+
 # 0.4.0
 
 - Upgrade `eyeball-im` dependency to 0.4.0
