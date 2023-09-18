@@ -12,7 +12,10 @@ use self::ops::{VectorDiffContainerFamilyMember, VectorDiffContainerOps};
 pub use self::{
     filter::{Filter, FilterMap},
     limit::{EmptyLimitStream, Limit},
-    traits::VectorDiffContainer,
+    traits::{
+        BatchedVectorSubscriber, VectorDiffContainer, VectorObserver, VectorObserverExt,
+        VectorSubscriberExt,
+    },
 };
 
 /// Type alias for extracting the element type from a stream of

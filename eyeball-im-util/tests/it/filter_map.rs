@@ -1,13 +1,12 @@
 use eyeball_im::{ObservableVector, VectorDiff};
-use eyeball_im_util::vector::FilterMap;
+use eyeball_im_util::vector::{VectorObserverExt, VectorSubscriberExt};
 use imbl::vector;
 use stream_assert::{assert_next_eq, assert_pending};
 
 #[test]
 fn insert_len_tracking() {
     let mut ob: ObservableVector<i32> = ObservableVector::new();
-    let (_, mut sub) =
-        FilterMap::new(ob.clone(), ob.subscribe().into_batched_stream(), |i| u8::try_from(i).ok());
+    let (_, mut sub) = ob.subscribe().batched().filter_map(|i| u8::try_from(i).ok());
 
     ob.insert(0, -1);
     assert_pending!(sub);
@@ -19,8 +18,7 @@ fn insert_len_tracking() {
 #[test]
 fn filter_map_batch() {
     let mut ob: ObservableVector<i32> = ObservableVector::new();
-    let (_, mut sub) =
-        FilterMap::new(ob.clone(), ob.subscribe().into_batched_stream(), |i| u8::try_from(i).ok());
+    let (_, mut sub) = ob.subscribe().batched().filter_map(|i| u8::try_from(i).ok());
 
     ob.append(vector![1024, -1]);
     assert_pending!(sub);

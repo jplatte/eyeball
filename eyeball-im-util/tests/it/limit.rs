@@ -1,13 +1,13 @@
 use eyeball::Observable;
 use eyeball_im::{ObservableVector, VectorDiff};
-use eyeball_im_util::vector::Limit;
+use eyeball_im_util::vector::VectorObserverExt;
 use imbl::vector;
 use stream_assert::{assert_closed, assert_next_eq, assert_pending};
 
 #[test]
 fn static_limit() {
     let mut ob: ObservableVector<usize> = ObservableVector::from(vector![1, 20, 300]);
-    let (limited, mut sub) = Limit::new(ob.clone(), ob.subscribe().into_stream(), 2);
+    let (limited, mut sub) = ob.subscribe().limit(2);
     assert_eq!(limited, vector![1, 20]);
     assert_pending!(sub);
 
@@ -22,8 +22,7 @@ fn static_limit() {
 fn pending_until_limit_emits_a_value() {
     let mut ob: ObservableVector<usize> = ObservableVector::new();
     let mut limit = Observable::new(0);
-    let mut sub =
-        Limit::dynamic(ob.clone(), ob.subscribe().into_stream(), Observable::subscribe(&limit));
+    let mut sub = ob.subscribe().dynamic_limit(Observable::subscribe(&limit));
 
     // Append new values…
     ob.append(vector![10, 11, 12]);
@@ -46,12 +45,8 @@ fn pending_until_limit_emits_a_value() {
 fn increase_and_decrease_the_limit_on_an_empty_stream() {
     let ob = ObservableVector::<usize>::new();
     let mut limit = Observable::new(1);
-    let (limited, mut sub) = Limit::dynamic_with_initial_limit(
-        ob.clone(),
-        ob.subscribe().into_stream(),
-        1,
-        Observable::subscribe(&limit),
-    );
+    let (limited, mut sub) =
+        ob.subscribe().dynamic_limit_with_initial_value(1, Observable::subscribe(&limit));
 
     assert!(limited.is_empty());
 
@@ -77,8 +72,7 @@ fn increase_and_decrease_the_limit_on_an_empty_stream() {
 fn increase_and_decrease_the_limit_only() {
     let mut ob = ObservableVector::<usize>::new();
     let mut limit = Observable::new(0);
-    let mut sub =
-        Limit::dynamic(ob.clone(), ob.subscribe().into_stream(), Observable::subscribe(&limit));
+    let mut sub = ob.subscribe().dynamic_limit(Observable::subscribe(&limit));
 
     // Append 4 values.
     ob.append(vector![10, 11, 12, 13]);
@@ -133,8 +127,7 @@ fn increase_and_decrease_the_limit_only() {
 fn limit_is_zero() {
     let mut ob = ObservableVector::<usize>::new();
     let mut limit = Observable::new(0);
-    let mut sub =
-        Limit::dynamic(ob.clone(), ob.subscribe().into_stream(), Observable::subscribe(&limit));
+    let mut sub = ob.subscribe().dynamic_limit(Observable::subscribe(&limit));
 
     // Append 4 values.
     ob.append(vector![10, 11, 12, 13]);
@@ -177,8 +170,7 @@ fn limit_is_zero() {
 fn limit_is_polled_first() {
     let mut ob = ObservableVector::<usize>::new();
     let mut limit = Observable::new(0);
-    let mut sub =
-        Limit::dynamic(ob.clone(), ob.subscribe().into_stream(), Observable::subscribe(&limit));
+    let mut sub = ob.subscribe().dynamic_limit(Observable::subscribe(&limit));
 
     // Append 4 values.
     ob.append(vector![10, 11, 12, 13]);
@@ -211,8 +203,7 @@ fn limit_is_polled_first() {
 fn append() {
     let mut ob = ObservableVector::<usize>::new();
     let mut limit = Observable::new(0);
-    let mut sub =
-        Limit::dynamic(ob.clone(), ob.subscribe().into_stream(), Observable::subscribe(&limit));
+    let mut sub = ob.subscribe().dynamic_limit(Observable::subscribe(&limit));
 
     // Set limit to 4.
     Observable::set(&mut limit, 4);
@@ -267,8 +258,7 @@ fn append() {
 fn clear() {
     let mut ob = ObservableVector::<usize>::new();
     let mut limit = Observable::new(0);
-    let mut sub =
-        Limit::dynamic(ob.clone(), ob.subscribe().into_stream(), Observable::subscribe(&limit));
+    let mut sub = ob.subscribe().dynamic_limit(Observable::subscribe(&limit));
 
     // Set limit to 4.
     Observable::set(&mut limit, 4);
@@ -297,8 +287,7 @@ fn clear() {
 fn push_front() {
     let mut ob = ObservableVector::<usize>::new();
     let mut limit = Observable::new(0);
-    let mut sub =
-        Limit::dynamic(ob.clone(), ob.subscribe().into_stream(), Observable::subscribe(&limit));
+    let mut sub = ob.subscribe().dynamic_limit(Observable::subscribe(&limit));
 
     // Set limit to 2.
     Observable::set(&mut limit, 2);
@@ -350,8 +339,7 @@ fn push_front() {
 fn push_back() {
     let mut ob = ObservableVector::<usize>::new();
     let mut limit = Observable::new(0);
-    let mut sub =
-        Limit::dynamic(ob.clone(), ob.subscribe().into_stream(), Observable::subscribe(&limit));
+    let mut sub = ob.subscribe().dynamic_limit(Observable::subscribe(&limit));
 
     // Set limit to 2.
     Observable::set(&mut limit, 2);
@@ -400,8 +388,7 @@ fn push_back() {
 fn pop_front() {
     let mut ob = ObservableVector::<usize>::new();
     let mut limit = Observable::new(0);
-    let mut sub =
-        Limit::dynamic(ob.clone(), ob.subscribe().into_stream(), Observable::subscribe(&limit));
+    let mut sub = ob.subscribe().dynamic_limit(Observable::subscribe(&limit));
 
     // Add 4 values.
     ob.append(vector![10, 11, 12, 13]);
@@ -453,8 +440,7 @@ fn pop_front() {
 fn pop_back() {
     let mut ob = ObservableVector::<usize>::new();
     let mut limit = Observable::new(0);
-    let mut sub =
-        Limit::dynamic(ob.clone(), ob.subscribe().into_stream(), Observable::subscribe(&limit));
+    let mut sub = ob.subscribe().dynamic_limit(Observable::subscribe(&limit));
 
     // Add 4 values.
     ob.append(vector![10, 11, 12, 13]);
@@ -503,8 +489,7 @@ fn pop_back() {
 fn insert() {
     let mut ob = ObservableVector::<usize>::new();
     let mut limit = Observable::new(0);
-    let mut sub =
-        Limit::dynamic(ob.clone(), ob.subscribe().into_stream(), Observable::subscribe(&limit));
+    let mut sub = ob.subscribe().dynamic_limit(Observable::subscribe(&limit));
 
     // Add 2 values.
     ob.append(vector![10, 11]);
@@ -561,8 +546,7 @@ fn insert() {
 fn set() {
     let mut ob = ObservableVector::<usize>::new();
     let mut limit = Observable::new(0);
-    let mut sub =
-        Limit::dynamic(ob.clone(), ob.subscribe().into_stream(), Observable::subscribe(&limit));
+    let mut sub = ob.subscribe().dynamic_limit(Observable::subscribe(&limit));
 
     // Add 3 values.
     ob.append(vector![10, 11, 12]);
@@ -611,8 +595,7 @@ fn set() {
 fn remove() {
     let mut ob = ObservableVector::<usize>::new();
     let mut limit = Observable::new(0);
-    let mut sub =
-        Limit::dynamic(ob.clone(), ob.subscribe().into_stream(), Observable::subscribe(&limit));
+    let mut sub = ob.subscribe().dynamic_limit(Observable::subscribe(&limit));
 
     // Add 5 values.
     ob.append(vector![10, 11, 12, 13, 14]);
@@ -664,8 +647,7 @@ fn remove() {
 fn truncate() {
     let mut ob = ObservableVector::<usize>::new();
     let mut limit = Observable::new(0);
-    let mut sub =
-        Limit::dynamic(ob.clone(), ob.subscribe().into_stream(), Observable::subscribe(&limit));
+    let mut sub = ob.subscribe().dynamic_limit(Observable::subscribe(&limit));
 
     // Add 5 values.
     ob.append(vector![10, 11, 12, 13, 14]);
@@ -714,8 +696,7 @@ fn truncate() {
 fn reset() {
     let mut ob = ObservableVector::<usize>::with_capacity(2);
     let mut limit = Observable::new(0);
-    let mut sub =
-        Limit::dynamic(ob.clone(), ob.subscribe().into_stream(), Observable::subscribe(&limit));
+    let mut sub = ob.subscribe().dynamic_limit(Observable::subscribe(&limit));
 
     // Add 1 value.
     ob.append(vector![10]);
