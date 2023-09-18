@@ -10,6 +10,7 @@ use super::{
     VectorDiffContainer, VectorDiffContainerDiff, VectorDiffContainerOps,
     VectorDiffContainerStreamElement, VectorObserver,
 };
+use arrayvec::ArrayVec;
 use eyeball_im::VectorDiff;
 use futures_core::Stream;
 use imbl::Vector;
@@ -127,7 +128,7 @@ where
             limit_stream,
             buffered_vector,
             limit: initial_limit,
-            ready_values: VecDeque::new(),
+            ready_values: Default::default(),
         };
 
         (initial_values, stream)
@@ -198,118 +199,17 @@ where
 
     fn apply_diff(&mut self, diff: VectorDiffContainerDiff<S>) {
         let limit = *self.limit;
-        let length = self.buffered_vector.len();
+        let prev_len = self.buffered_vector.len();
 
         // Update the `buffered_vector`. It's a replica of the original observed
         // `Vector`. We need to maintain it in order to be able to produce valid
         // `VectorDiff`s when items are missing.
         update_buffered_vector(&diff, self.buffered_vector);
-
-        // If the limit is zero, we have nothing to do.
-        if limit == 0 {
-            return;
-        }
-
-        let is_full = length >= limit;
-
-        match diff {
-            VectorDiff::Append { mut values } => {
-                if is_full {
-                    // Let's ignore the diff.
-                } else {
-                    // Let's truncate the `values` to fit inside the free space.
-                    values.truncate(min(limit - length, values.len()));
-                    self.push_ready_value(VectorDiff::Append { values });
-                }
-            }
-            VectorDiff::Clear => {
-                self.push_ready_value(VectorDiff::Clear);
-            }
-            VectorDiff::PushFront { value } => {
-                if is_full {
-                    // Create 1 free space.
-                    self.push_ready_value(VectorDiff::PopBack);
-                }
-
-                // There is space for this new item.
-                self.push_ready_value(VectorDiff::PushFront { value });
-            }
-            VectorDiff::PushBack { value } => {
-                if is_full {
-                    // Let's ignore the diff.
-                } else {
-                    // There is space for this new item.
-                    self.push_ready_value(VectorDiff::PushBack { value });
-                }
-            }
-            VectorDiff::PopFront => {
-                self.push_ready_value(VectorDiff::PopFront);
-
-                if let Some(diff) = self.buffered_vector.get(limit - 1) {
-                    // Push back a new item.
-                    self.push_ready_value(VectorDiff::PushBack { value: diff.clone() });
-                }
-            }
-            VectorDiff::PopBack => {
-                if length > limit {
-                    // Pop back outside the limit, let's ignore the diff.
-                } else {
-                    self.push_ready_value(VectorDiff::PopBack);
-                }
-            }
-            VectorDiff::Insert { index, value } => {
-                if index >= limit {
-                    // Insert after `limit`, let's ignore the diff.
-                } else {
-                    if is_full {
-                        // Create 1 free space.
-                        self.push_ready_value(VectorDiff::PopBack);
-                    }
-
-                    // There is space for this new item.
-                    self.push_ready_value(VectorDiff::Insert { index, value });
-                }
-            }
-            VectorDiff::Set { index, value } => {
-                if index >= limit {
-                    // Update after `limit`, let's ignore the diff.
-                } else {
-                    self.push_ready_value(VectorDiff::Set { index, value });
-                }
-            }
-            VectorDiff::Remove { index } => {
-                if index >= limit {
-                    // Remove after `limit`, let's ignore the diff.
-                } else {
-                    self.push_ready_value(VectorDiff::Remove { index });
-
-                    if let Some(diff) = self.buffered_vector.get(limit - 1) {
-                        // Push back a new item.
-                        self.push_ready_value(VectorDiff::PushBack { value: diff.clone() });
-                    }
-                }
-            }
-            VectorDiff::Truncate { length: new_length } => {
-                if new_length >= limit {
-                    // Truncate items after `limit`, let's ignore the diff.
-                } else {
-                    self.push_ready_value(VectorDiff::Truncate { length: new_length });
-                }
-            }
-            VectorDiff::Reset { values: mut new_values } => {
-                if new_values.len() > limit {
-                    // There are too many values, truncate.
-                    new_values.truncate(limit);
-                }
-
-                // There is space for these new items.
-                self.push_ready_value(VectorDiff::Reset { values: new_values });
-            }
-        }
-    }
-
-    fn push_ready_value(&mut self, diff: VectorDiffContainerDiff<S>) {
-        self.ready_values.push_back(S::Item::from_item(diff));
+        self.ready_values.extend(
+            handle_diff(diff, limit, prev_len, self.buffered_vector)
+                .into_iter()
+                .map(S::Item::from_item),
+        );
     }
 
     /// Update the limit if necessary.
@@ -408,4 +308,116 @@ fn update_buffered_vector<T: Clone>(diff: &VectorDiff<T>, buffered_vector: &mut 
             *buffered_vector = values.clone();
         }
     }
+}
+
+fn handle_diff<T: Clone>(
+    diff: VectorDiff<T>,
+    limit: usize,
+    prev_len: usize,
+    buffered_vector: &Vector<T>,
+) -> ArrayVec<VectorDiff<T>, 2> {
+    // If the limit is zero, we have nothing to do.
+    if limit == 0 {
+        return ArrayVec::new();
+    }
+
+    let is_full = prev_len >= limit;
+
+    let mut res = ArrayVec::new();
+    match diff {
+        VectorDiff::Append { mut values } => {
+            if is_full {
+                // Ignore the diff.
+            } else {
+                // Truncate the `values` to fit inside the free space.
+                values.truncate(min(limit - prev_len, values.len()));
+                res.push(VectorDiff::Append { values });
+            }
+        }
+        VectorDiff::Clear => {
+            res.push(VectorDiff::Clear);
+        }
+        VectorDiff::PushFront { value } => {
+            if is_full {
+                // Create 1 free space.
+                res.push(VectorDiff::PopBack);
+            }
+
+            // There is space for this new item.
+            res.push(VectorDiff::PushFront { value });
+        }
+        VectorDiff::PushBack { value } => {
+            if is_full {
+                // Ignore the diff.
+            } else {
+                // There is space for this new item.
+                res.push(VectorDiff::PushBack { value });
+            }
+        }
+        VectorDiff::PopFront => {
+            res.push(VectorDiff::PopFront);
+
+            if let Some(diff) = buffered_vector.get(limit - 1) {
+                // There is a previously-truncated item, push back.
+                res.push(VectorDiff::PushBack { value: diff.clone() });
+            }
+        }
+        VectorDiff::PopBack => {
+            if prev_len > limit {
+                // Pop back outside the limit, ignore the diff.
+            } else {
+                res.push(VectorDiff::PopBack);
+            }
+        }
+        VectorDiff::Insert { index, value } => {
+            if index >= limit {
+                // Insert after `limit`, ignore the diff.
+            } else {
+                if is_full {
+                    // Create 1 free space.
+                    res.push(VectorDiff::PopBack);
+                }
+
+                // There is space for this new item.
+                res.push(VectorDiff::Insert { index, value });
+            }
+        }
+        VectorDiff::Set { index, value } => {
+            if index >= limit {
+                // Update after `limit`, ignore the diff.
+            } else {
+                res.push(VectorDiff::Set { index, value });
+            }
+        }
+        VectorDiff::Remove { index } => {
+            if index >= limit {
+                // Remove after `limit`, ignore the diff.
+            } else {
+                res.push(VectorDiff::Remove { index });
+
+                if let Some(diff) = buffered_vector.get(limit - 1) {
+                    // There is a previously-truncated item, push back.
+                    res.push(VectorDiff::PushBack { value: diff.clone() });
+                }
+            }
+        }
+        VectorDiff::Truncate { length: new_length } => {
+            if new_length >= limit {
+                // Truncate items after `limit`, ignore the diff.
+            } else {
+                res.push(VectorDiff::Truncate { length: new_length });
+            }
+        }
+        VectorDiff::Reset { values: mut new_values } => {
+            if new_values.len() > limit {
+                // There are too many values, truncate.
+                new_values.truncate(limit);
+            }
+
+            // There is space for these new items.
+            res.push(VectorDiff::Reset { values: new_values });
+        }
+    }
+
+    res
 }
