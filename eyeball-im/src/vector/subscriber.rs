@@ -21,19 +21,19 @@ use super::{BroadcastMessage, OneOrManyDiffs, VectorDiff};
 /// A subscriber for updates of a [`Vector`].
 #[derive(Debug)]
 pub struct VectorSubscriber<T> {
-    items: Vector<T>,
+    values: Vector<T>,
     rx: Receiver<BroadcastMessage<T>>,
 }
 
 impl<T: Clone + Send + Sync + 'static> VectorSubscriber<T> {
     pub(super) fn new(items: Vector<T>, rx: Receiver<BroadcastMessage<T>>) -> Self {
-        Self { items, rx }
+        Self { values: items, rx }
     }
 
     /// Get the items the [`ObservableVector`][super::ObservableVector]
     /// contained when this subscriber was created.
     pub fn values(&self) -> Vector<T> {
-        self.items.clone()
+        self.values.clone()
     }
 
     /// Turn this `VectorSubcriber` into a stream of `VectorDiff`s.
@@ -46,24 +46,24 @@ impl<T: Clone + Send + Sync + 'static> VectorSubscriber<T> {
         VectorSubscriberBatchedStream::new(ReusableBoxFuture::new(make_future(self.rx)))
     }
 
-    /// Destructure this `VectorSubscriber` into the initial items and a stream
+    /// Destructure this `VectorSubscriber` into the initial values and a stream
     /// of `VectorDiff`s.
     ///
     /// Semantically equivalent to calling `.values()` and `.into_stream()`
     /// separately, but guarantees that the values are not unnecessarily cloned.
-    pub fn into_items_and_stream(self) -> (Vector<T>, VectorSubscriberStream<T>) {
-        let Self { items, rx } = self;
-        (items, VectorSubscriberStream::new(ReusableBoxFuture::new(make_future(rx))))
+    pub fn into_values_and_stream(self) -> (Vector<T>, VectorSubscriberStream<T>) {
+        let Self { values, rx } = self;
+        (values, VectorSubscriberStream::new(ReusableBoxFuture::new(make_future(rx))))
     }
 
-    /// Destructure this `VectorSubscriber` into the initial items and a stream
+    /// Destructure this `VectorSubscriber` into the initial values and a stream
     /// of `Vec<VectorDiff>`s.
     ///
     /// Semantically equivalent to calling `.values()` and `.into_stream()`
     /// separately, but guarantees that the values are not unnecessarily cloned.
-    pub fn into_items_and_batched_stream(self) -> (Vector<T>, VectorSubscriberBatchedStream<T>) {
-        let Self { items, rx } = self;
-        (items, VectorSubscriberBatchedStream::new(ReusableBoxFuture::new(make_future(rx))))
+    pub fn into_values_and_batched_stream(self) -> (Vector<T>, VectorSubscriberBatchedStream<T>) {
+        let Self { values, rx } = self;
+        (values, VectorSubscriberBatchedStream::new(ReusableBoxFuture::new(make_future(rx))))
     }
 }
 

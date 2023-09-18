@@ -71,7 +71,7 @@ impl<T: Clone + Send + Sync + 'static> VectorObserver<T> for VectorSubscriber<T>
     type Stream = VectorSubscriberStream<T>;
 
     fn into_parts(self) -> (Vector<T>, Self::Stream) {
-        self.into_items_and_stream()
+        self.into_values_and_stream()
     }
 }
 
@@ -79,7 +79,7 @@ impl<T: Clone + Send + Sync + 'static> VectorObserver<T> for BatchedVectorSubscr
     type Stream = VectorSubscriberBatchedStream<T>;
 
     fn into_parts(self) -> (Vector<T>, Self::Stream) {
-        self.inner.into_items_and_batched_stream()
+        self.inner.into_values_and_batched_stream()
     }
 }
 
