@@ -10,8 +10,8 @@ use futures_core::Stream;
 use pin_project_lite::pin_project;
 
 use super::{
-    VectorDiffContainer, VectorDiffContainerFamily, VectorDiffContainerOps,
-    VectorDiffContainerStreamElement, VectorDiffContainerStreamFamily,
+    VectorDiffContainer, VectorDiffContainerDiff, VectorDiffContainerFamily,
+    VectorDiffContainerOps, VectorDiffContainerStreamElement, VectorDiffContainerStreamFamily,
     VectorDiffContainerStreamMappedItem,
 };
 
@@ -206,7 +206,7 @@ where
         &mut self,
         values: Vector<VectorDiffContainerStreamElement<S>>,
         f: &F,
-    ) -> Option<VectorDiff<VectorDiffContainerStreamElement<S>>>
+    ) -> Option<VectorDiffContainerDiff<S>>
     where
         F: Fn(&VectorDiffContainerStreamElement<S>) -> bool,
     {
@@ -375,7 +375,7 @@ where
         &mut self,
         values: Vector<VectorDiffContainerStreamElement<S>>,
         f: &F,
-    ) -> Option<VectorDiff<VectorDiffContainerStreamElement<S>>>
+    ) -> Option<VectorDiffContainerDiff<S>>
     where
         F: Fn(&VectorDiffContainerStreamElement<S>) -> bool,
     {

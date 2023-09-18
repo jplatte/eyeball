@@ -7,8 +7,8 @@ use std::{
 };
 
 use super::{
-    VectorDiffContainer, VectorDiffContainerFamily, VectorDiffContainerOps,
-    VectorDiffContainerStreamElement, VectorDiffContainerStreamFamily,
+    VectorDiffContainer, VectorDiffContainerDiff, VectorDiffContainerFamily,
+    VectorDiffContainerOps, VectorDiffContainerStreamElement, VectorDiffContainerStreamFamily,
 };
 use eyeball_im::VectorDiff;
 use futures_core::Stream;
@@ -189,7 +189,7 @@ where
         }
     }
 
-    fn apply_diff(&mut self, diff: VectorDiff<VectorDiffContainerStreamElement<S>>) {
+    fn apply_diff(&mut self, diff: VectorDiffContainerDiff<S>) {
         let limit = *self.limit;
         let length = self.buffered_vector.len();
 
@@ -301,14 +301,14 @@ where
         }
     }
 
-    fn push_ready_value(&mut self, diff: VectorDiff<VectorDiffContainerStreamElement<S>>) {
+    fn push_ready_value(&mut self, diff: VectorDiffContainerDiff<S>) {
         self.ready_values.push_back(S::Item::from_item(diff));
     }
 
     /// Update the buffered vector.
     ///
     /// All items are cloned.
-    fn update_buffered_vector(&mut self, diff: &VectorDiff<VectorDiffContainerStreamElement<S>>) {
+    fn update_buffered_vector(&mut self, diff: &VectorDiffContainerDiff<S>) {
         match diff {
             VectorDiff::Append { values } => self.buffered_vector.append(values.clone()),
             VectorDiff::Clear => self.buffered_vector.clear(),

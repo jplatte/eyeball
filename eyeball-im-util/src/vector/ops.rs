@@ -16,8 +16,11 @@ pub trait VectorDiffContainerOps<T> {
     fn filter_map<U>(
         self,
         f: impl FnMut(VectorDiff<T>) -> Option<VectorDiff<U>>,
-    ) -> Option<<Self::Family as VectorDiffContainerFamily>::Member<U>>;
+    ) -> Option<VectorDiffContainerFamilyMember<Self::Family, U>>;
 }
+
+#[allow(unreachable_pub)]
+pub type VectorDiffContainerFamilyMember<F, U> = <F as VectorDiffContainerFamily>::Member<U>;
 
 impl<T> VectorDiffContainerOps<T> for VectorDiff<T> {
     type Family = VectorDiffFamily;
@@ -40,7 +43,7 @@ impl<T> VectorDiffContainerOps<T> for VectorDiff<T> {
     fn filter_map<U>(
         self,
         mut f: impl FnMut(VectorDiff<T>) -> Option<VectorDiff<U>>,
-    ) -> Option<<Self::Family as VectorDiffContainerFamily>::Member<U>> {
+    ) -> Option<VectorDiffContainerFamilyMember<Self::Family, U>> {
         f(self)
     }
 }
@@ -66,7 +69,7 @@ impl<T> VectorDiffContainerOps<T> for Vec<VectorDiff<T>> {
     fn filter_map<U>(
         self,
         f: impl FnMut(VectorDiff<T>) -> Option<VectorDiff<U>>,
-    ) -> Option<<Self::Family as VectorDiffContainerFamily>::Member<U>> {
+    ) -> Option<VectorDiffContainerFamilyMember<Self::Family, U>> {
         let res: Vec<_> = self.into_iter().filter_map(f).collect();
         if res.is_empty() {
             None
