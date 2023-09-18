@@ -34,12 +34,12 @@ impl<T> VectorDiffContainer for Vec<VectorDiff<T>> {
 pub type VectorDiffContainerStreamElement<S> =
     <<S as Stream>::Item as VectorDiffContainer>::Element;
 
-/// Type alias for extracting the [`VectorDiffContainerFamily`] type from a
-/// stream of [`VectorDiffContainer`]s.
-type VectorDiffContainerStreamFamily<S> =
-    <<S as Stream>::Item as VectorDiffContainerOps<VectorDiffContainerStreamElement<S>>>::Family;
-
 /// Type alias for extracting the stream item type after the element type was
 /// mapped to the given type `U`, from a stream of [`VectorDiffContainer`]s.
 pub type VectorDiffContainerStreamMappedItem<S, U> =
     <VectorDiffContainerStreamFamily<S> as VectorDiffContainerFamily>::Member<U>;
+
+/// Type alias for extracting the [`VectorDiffContainerFamily`] type from a
+/// stream of [`VectorDiffContainer`]s.
+type VectorDiffContainerStreamFamily<S> =
+    <<S as Stream>::Item as VectorDiffContainerOps<VectorDiffContainerStreamElement<S>>>::Family;
