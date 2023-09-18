@@ -7,8 +7,7 @@ use std::{
 };
 
 use super::{
-    VectorDiffContainer, VectorDiffContainerDiff, VectorDiffContainerOps,
-    VectorDiffContainerStreamElement, VectorObserver,
+    VectorDiffContainer, VectorDiffContainerOps, VectorDiffContainerStreamElement, VectorObserver,
 };
 use arrayvec::ArrayVec;
 use eyeball_im::VectorDiff;
@@ -191,25 +190,23 @@ where
             };
 
             // Consume and apply the diffs if possible.
-            diffs.for_each(|diff| self.apply_diff(diff));
+            diffs.for_each(|diff| {
+                let limit = *self.limit;
+                let prev_len = self.buffered_vector.len();
+
+                // Update the `buffered_vector`. It's a replica of the original observed
+                // `Vector`. We need to maintain it in order to be able to produce valid
+                // `VectorDiff`s when items are missing.
+                update_buffered_vector(&diff, self.buffered_vector);
+                self.ready_values.extend(
+                    handle_diff(diff, limit, prev_len, self.buffered_vector)
+                        .into_iter()
+                        .map(S::Item::from_item),
+                );
+            });
 
             // Loop, checking for ready values again.
         }
-    }
-
-    fn apply_diff(&mut self, diff: VectorDiffContainerDiff<S>) {
-        let limit = *self.limit;
-        let prev_len = self.buffered_vector.len();
-
-        // Update the `buffered_vector`. It's a replica of the original observed
-        // `Vector`. We need to maintain it in order to be able to produce valid
-        // `VectorDiff`s when items are missing.
-        update_buffered_vector(&diff, self.buffered_vector);
-        self.ready_values.extend(
-            handle_diff(diff, limit, prev_len, self.buffered_vector)
-                .into_iter()
-                .map(S::Item::from_item),
-        );
     }
 
     /// Update the limit if necessary.
