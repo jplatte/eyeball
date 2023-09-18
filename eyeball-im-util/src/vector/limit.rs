@@ -8,7 +8,7 @@ use std::{
 
 use super::{
     VectorDiffContainer, VectorDiffContainerDiff, VectorDiffContainerOps,
-    VectorDiffContainerStreamElement,
+    VectorDiffContainerStreamElement, VectorObserver,
 };
 use eyeball_im::VectorDiff;
 use futures_core::Stream;
@@ -144,6 +144,19 @@ where
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Option<Self::Item>> {
         self.project().poll_next(cx)
+    }
+}
+
+impl<S, L> VectorObserver<VectorDiffContainerStreamElement<S>> for Limit<S, L>
+where
+    S: Stream,
+    S::Item: VectorDiffContainer,
+    L: Stream<Item = usize>,
+{
+    type Stream = Self;
+
+    fn into_parts(self) -> (Vector<VectorDiffContainerStreamElement<S>>, Self::Stream) {
+        (self.buffered_vector.clone(), self)
     }
 }
 
