@@ -21,27 +21,54 @@ use super::{BroadcastMessage, OneOrManyDiffs, VectorDiff};
 /// A subscriber for updates of a [`Vector`].
 #[derive(Debug)]
 pub struct VectorSubscriber<T> {
+    items: Vector<T>,
     rx: Receiver<BroadcastMessage<T>>,
 }
 
 impl<T: Clone + Send + Sync + 'static> VectorSubscriber<T> {
-    pub(super) fn new(rx: Receiver<BroadcastMessage<T>>) -> Self {
-        Self { rx }
+    pub(super) fn new(items: Vector<T>, rx: Receiver<BroadcastMessage<T>>) -> Self {
+        Self { items, rx }
+    }
+
+    /// Get the items the [`ObservableVector`][super::ObservableVector]
+    /// contained when this subscriber was created.
+    pub fn values(&self) -> Vector<T> {
+        self.items.clone()
     }
 
     /// Turn this `VectorSubcriber` into a stream of `VectorDiff`s.
     pub fn into_stream(self) -> VectorSubscriberStream<T> {
-        VectorSubscriberStream {
-            inner: ReusableBoxFuture::new(make_future(self.rx)),
-            state: VectorSubscriberStreamState::Recv,
-        }
+        VectorSubscriberStream::new(ReusableBoxFuture::new(make_future(self.rx)))
     }
 
     /// Turn this `VectorSubcriber` into a stream of `Vec<VectorDiff>`s.
     pub fn into_batched_stream(self) -> VectorSubscriberBatchedStream<T> {
-        VectorSubscriberBatchedStream { inner: ReusableBoxFuture::new(make_future(self.rx)) }
+        VectorSubscriberBatchedStream::new(ReusableBoxFuture::new(make_future(self.rx)))
+    }
+
+    /// Destructure this `VectorSubscriber` into the initial items and a stream
+    /// of `VectorDiff`s.
+    ///
+    /// Semantically equivalent to calling `.values()` and `.into_stream()`
+    /// separately, but guarantees that the values are not unnecessarily cloned.
+    pub fn into_items_and_stream(self) -> (Vector<T>, VectorSubscriberStream<T>) {
+        let Self { items, rx } = self;
+        (items, VectorSubscriberStream::new(ReusableBoxFuture::new(make_future(rx))))
+    }
+
+    /// Destructure this `VectorSubscriber` into the initial items and a stream
+    /// of `Vec<VectorDiff>`s.
+    ///
+    /// Semantically equivalent to calling `.values()` and `.into_stream()`
+    /// separately, but guarantees that the values are not unnecessarily cloned.
+    pub fn into_items_and_batched_stream(self) -> (Vector<T>, VectorSubscriberBatchedStream<T>) {
+        let Self { items, rx } = self;
+        (items, VectorSubscriberBatchedStream::new(ReusableBoxFuture::new(make_future(rx))))
     }
 }
+
+type ReusableBoxRecvFuture<T> =
+    ReusableBoxFuture<'static, SubscriberFutureReturn<BroadcastMessage<T>>>;
 
 /// A stream of `VectorDiff`s created from a [`VectorSubscriber`].
 ///
@@ -50,8 +77,14 @@ impl<T: Clone + Send + Sync + 'static> VectorSubscriber<T> {
 /// methods).
 #[derive(Debug)]
 pub struct VectorSubscriberStream<T> {
-    inner: ReusableBoxFuture<'static, SubscriberFutureReturn<BroadcastMessage<T>>>,
+    inner: ReusableBoxRecvFuture<T>,
     state: VectorSubscriberStreamState<T>,
+}
+
+impl<T> VectorSubscriberStream<T> {
+    fn new(inner: ReusableBoxRecvFuture<T>) -> Self {
+        Self { inner, state: VectorSubscriberStreamState::Recv }
+    }
 }
 
 #[derive(Debug)]
@@ -128,7 +161,13 @@ impl<T: Clone + Send + Sync + 'static> Stream for VectorSubscriberStream<T> {
 /// methods).
 #[derive(Debug)]
 pub struct VectorSubscriberBatchedStream<T> {
-    inner: ReusableBoxFuture<'static, SubscriberFutureReturn<BroadcastMessage<T>>>,
+    inner: ReusableBoxRecvFuture<T>,
+}
+
+impl<T> VectorSubscriberBatchedStream<T> {
+    fn new(inner: ReusableBoxRecvFuture<T>) -> Self {
+        Self { inner }
+    }
 }
 
 impl<T: Clone + Send + Sync + 'static> Stream for VectorSubscriberBatchedStream<T> {

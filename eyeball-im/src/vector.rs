@@ -65,7 +65,7 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
     /// reading of the values and subscribing to changes.
     pub fn subscribe(&self) -> VectorSubscriber<T> {
         let rx = self.sender.subscribe();
-        VectorSubscriber::new(rx)
+        VectorSubscriber::new(self.values.clone(), rx)
     }
 
     /// Append the given elements at the end of the `Vector` and notify
