@@ -7,8 +7,8 @@ use std::{
 };
 
 use super::{
-    VectorDiffContainer, VectorDiffContainerDiff, VectorDiffContainerFamily,
-    VectorDiffContainerOps, VectorDiffContainerStreamElement, VectorDiffContainerStreamFamily,
+    VectorDiffContainer, VectorDiffContainerDiff, VectorDiffContainerOps,
+    VectorDiffContainerStreamElement,
 };
 use eyeball_im::VectorDiff;
 use futures_core::Stream;
@@ -65,8 +65,6 @@ where
     S: Stream,
     S::Item: VectorDiffContainer,
     VectorDiffContainerStreamElement<S>: Clone + Send + Sync + 'static,
-    VectorDiffContainerStreamFamily<S>:
-        VectorDiffContainerFamily<Member<VectorDiffContainerStreamElement<S>> = S::Item>,
 {
     /// Create a new [`Limit`] with the given (unlimited) initial values,
     /// stream of `VectorDiff` updates for those values, and a fixed limit.
@@ -87,8 +85,6 @@ where
     S: Stream,
     S::Item: VectorDiffContainer,
     VectorDiffContainerStreamElement<S>: Clone + Send + Sync + 'static,
-    VectorDiffContainerStreamFamily<S>:
-        VectorDiffContainerFamily<Member<VectorDiffContainerStreamElement<S>> = S::Item>,
     L: Stream<Item = usize>,
 {
     /// Create a new [`Limit`] with the given (unlimited) initial values, stream

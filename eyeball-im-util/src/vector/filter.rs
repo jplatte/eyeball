@@ -10,9 +10,8 @@ use futures_core::Stream;
 use pin_project_lite::pin_project;
 
 use super::{
-    VectorDiffContainer, VectorDiffContainerDiff, VectorDiffContainerFamily,
-    VectorDiffContainerOps, VectorDiffContainerStreamElement, VectorDiffContainerStreamFamily,
-    VectorDiffContainerStreamMappedItem,
+    VectorDiffContainer, VectorDiffContainerDiff, VectorDiffContainerOps,
+    VectorDiffContainerStreamElement, VectorDiffContainerStreamMappedItem,
 };
 
 pin_project! {
@@ -30,8 +29,6 @@ where
     S: Stream,
     S::Item: VectorDiffContainer,
     VectorDiffContainerStreamElement<S>: Clone + Send + Sync + 'static,
-    VectorDiffContainerStreamFamily<S>:
-        VectorDiffContainerFamily<Member<VectorDiffContainerStreamElement<S>> = S::Item>,
     F: Fn(&VectorDiffContainerStreamElement<S>) -> bool,
 {
     /// Create a new `Filter` with the given (unfiltered) initial values, stream
@@ -64,8 +61,6 @@ where
     S: Stream,
     S::Item: VectorDiffContainer,
     VectorDiffContainerStreamElement<S>: Clone + Send + Sync + 'static,
-    VectorDiffContainerStreamFamily<S>:
-        VectorDiffContainerFamily<Member<VectorDiffContainerStreamElement<S>> = S::Item>,
     F: Fn(&VectorDiffContainerStreamElement<S>) -> bool,
 {
     type Item = S::Item;
@@ -401,8 +396,6 @@ where
     fn handle_diff_filter<F>(&mut self, f: &F, cx: &mut task::Context<'_>) -> Poll<Option<S::Item>>
     where
         F: Fn(&VectorDiffContainerStreamElement<S>) -> bool,
-        VectorDiffContainerStreamFamily<S>:
-            VectorDiffContainerFamily<Member<VectorDiffContainerStreamElement<S>> = S::Item>,
     {
         // Transform filter function into filter_map function.
         let f2 = |value| f(&value).then_some(value);

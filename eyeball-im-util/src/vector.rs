@@ -8,9 +8,7 @@ mod traits;
 use eyeball_im::VectorDiff;
 use futures_core::Stream;
 
-use self::ops::{
-    VectorDiffContainerFamily, VectorDiffContainerFamilyMember, VectorDiffContainerOps,
-};
+use self::ops::{VectorDiffContainerFamilyMember, VectorDiffContainerOps};
 pub use self::{
     filter::{Filter, FilterMap},
     limit::{EmptyLimitStream, Limit},
@@ -29,6 +27,8 @@ pub type VectorDiffContainerStreamMappedItem<S, U> =
 
 /// Type alias for extracting the [`VectorDiffContainerFamily`] type from a
 /// stream of [`VectorDiffContainer`]s.
+///
+/// [`VectorDiffContainerFamily`]: ops::VectorDiffContainerFamily
 type VectorDiffContainerStreamFamily<S> =
     <<S as Stream>::Item as VectorDiffContainerOps<VectorDiffContainerStreamElement<S>>>::Family;
 
