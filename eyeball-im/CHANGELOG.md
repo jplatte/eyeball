@@ -1,3 +1,8 @@
+# 0.4.1
+
+- Add extra methods to `VectorSubscriber`: `values`, `into_values_and_stream`,
+  `into_values_and_batched_stream`
+
 # 0.4.0
 
 - Add `truncate` method to `ObservableVector`, `ObservableVectorTransaction`
