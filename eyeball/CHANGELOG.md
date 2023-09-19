@@ -1,3 +1,8 @@
+# Unreleased
+
+- When the `tracing` feature is enabled, emit a debug log when the value of an
+  observable was updated but no wakers were registered for it
+
 # 0.8.6
 
 This release only updates metadata for docs.rs.

@@ -120,6 +120,8 @@ where
         let num_wakers = iter.len();
         if num_wakers > 0 {
             tracing::debug!("Waking up {num_wakers} waiting subscribers");
+        } else {
+            tracing::debug!("No wakers");
         }
     }
     for waker in iter {
