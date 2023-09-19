@@ -174,12 +174,14 @@ where
             }
 
             // Poll a new limit from `limit_stream` before polling `inner_stream`.
-            if let Poll::Ready(Some(next_limit)) = self.limit_stream.as_mut().poll_next(cx) {
+            while let Poll::Ready(Some(next_limit)) = self.limit_stream.as_mut().poll_next(cx) {
                 // We have new `VectorDiff`s after the limit has been updated.
                 // Return them.
                 if let Some(diffs) = self.update_limit(next_limit) {
                     return Poll::Ready(Some(diffs));
                 }
+
+                // If update_limit returned None, poll the limit stream again.
             }
 
             // Poll `VectorDiff`s from the `inner_stream`.

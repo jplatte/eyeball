@@ -19,7 +19,9 @@ pin-project-lite = "0.2.9"
 
 [dev-dependencies]
 eyeball = { version = "0.8.6", path = "../eyeball" }
+futures-util.workspace = true
 stream_assert.workspace = true
+tokio = { workspace = true, features = ["macros", "rt"] }
 
 [lints]
 workspace = true

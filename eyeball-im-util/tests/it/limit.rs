@@ -732,3 +732,36 @@ fn reset() {
     drop(ob);
     assert_closed!(sub);
 }
+
+#[tokio::test]
+async fn limit_stream_wake_bug() {
+    use futures_util::{FutureExt, StreamExt};
+    use tokio::task::yield_now;
+
+    let ob = ObservableVector::<u32>::from(vector![1, 2]);
+    let mut limit = Observable::new(1);
+    let (values, mut sub) =
+        ob.subscribe().dynamic_limit_with_initial_value(1, Observable::subscribe(&limit));
+
+    assert_eq!(values, vector![1]);
+
+    let task_hdl = tokio::spawn(async move {
+        let update = sub.next().await.unwrap();
+        assert_eq!(update, VectorDiff::Append { values: vector![2] });
+    });
+
+    // Set the limit to the same value that `Limit` has already seen.
+    Observable::set(&mut limit, 1);
+
+    // Make sure the task spawned above sees the "updated" limit.
+    yield_now().await;
+
+    // Now update the limit again.
+    Observable::set(&mut limit, 2);
+
+    // Allow the task to make progress.
+    yield_now().await;
+
+    // It should be finished now.
+    task_hdl.now_or_never().unwrap().unwrap();
+}

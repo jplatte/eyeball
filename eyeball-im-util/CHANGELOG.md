@@ -1,3 +1,8 @@
+# Unreleased
+
+- Fix a bug where the `Limit` adapter would fail to register interest in new
+  items from its limit stream
+
 # 0.5.0
 
 - Move bounds to simplify documentation
