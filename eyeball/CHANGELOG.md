@@ -1,4 +1,4 @@
-# Unreleased
+# 0.8.7
 
 - When the `tracing` feature is enabled, emit a debug log when the value of an
   observable was updated but no wakers were registered for it
