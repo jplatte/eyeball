@@ -1,4 +1,4 @@
-# Unreleased
+# 0.5.1
 
 - Fix a bug where the `Limit` adapter would fail to register interest in new
   items from its limit stream
