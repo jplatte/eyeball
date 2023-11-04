@@ -3,6 +3,7 @@ use stream_assert::{assert_next_eq, assert_pending};
 
 use eyeball_im::{ObservableVector, ObservableVectorEntry, VectorDiff};
 
+mod apply;
 mod batch;
 mod entry;
 
