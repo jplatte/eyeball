@@ -79,6 +79,7 @@ impl<T> VectorDiffContainerOps<T> for Vec<VectorDiff<T>> {
     }
 }
 
+#[allow(unreachable_pub)]
 pub trait VectorDiffContainerFamily {
     type Member<T>: VectorDiffContainerOps<T, Family = Self>;
 }
