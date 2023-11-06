@@ -1,3 +1,7 @@
+# 0.4.2
+
+- Add `VectorDiff::apply` that applies a `VectorDiff` to a `Vector`
+
 # 0.4.1
 
 - Add extra methods to `VectorSubscriber`: `values`, `into_values_and_stream`,

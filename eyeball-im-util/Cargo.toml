@@ -12,7 +12,7 @@ keywords.workspace = true
 all-features = true
 
 [dependencies]
-eyeball-im = { version = "0.4.1", path = "../eyeball-im" }
+eyeball-im = { version = "0.4.2", path = "../eyeball-im" }
 futures-core.workspace = true
 imbl = "2.0.0"
 pin-project-lite = "0.2.9"
