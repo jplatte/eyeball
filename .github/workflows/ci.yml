@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo test
@@ -26,21 +26,31 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
       - uses: Swatinem/rust-cache@v2
       - run: cargo doc --all-features
         env:
           RUSTDOCFLAGS: "-D warnings"
+
+  formatting:
+    name: Check Formatting
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+          components: rustfmt
+      - run: cargo fmt -- --check
 
   test-miri:
     name: Run tests with miri (Rust nightly)
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: miri
@@ -56,9 +66,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy -- -D warnings
+
+  typos:
+    name: Spell Check with Typos
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || !github.event.pull_request.draft
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: crate-ci/typos@v1.16.22
