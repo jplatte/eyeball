@@ -61,7 +61,7 @@ assert_eq!(*subscriber2.read(), "D");
 
 This library is currently optimized for low (0 - 4) numbers of subscribers.
 If you care about performance of a few dozens of subscribers, or are using
-hundrets of subscribers, please open an issue to discuss.
+hundreds of subscribers, please open an issue to discuss.
 
 For more details, see the documentation [on docs.rs][docs.rs].
 
