@@ -416,25 +416,47 @@ impl<T: Clone> VectorDiff<T> {
 
     /// Applies this [`VectorDiff`] to a vector.
     ///
-    /// This is useful to keep two vectors in sync, with potentially one containing
-    /// data [`map`](Self::map)ped from the other.
+    /// This is useful to keep two vectors in sync, with potentially one
+    /// containing data [`map`](Self::map)ped from the other.
     ///
     /// # Panics
     ///
     /// When inserting/setting/removing elements past the end.
     pub fn apply(self, vec: &mut Vector<T>) {
         match self {
-            VectorDiff::Append { values } => vec.extend(values),
-            VectorDiff::Clear => vec.clear(),
-            VectorDiff::PushFront { value } => vec.push_front(value),
-            VectorDiff::PushBack { value } => vec.push_back(value),
-            VectorDiff::PopFront => { vec.pop_front(); },
-            VectorDiff::PopBack => { vec.pop_back(); },
-            VectorDiff::Insert { index, value } => vec.insert(index, value),
-            VectorDiff::Set { index, value } => { vec.set(index, value); },
-            VectorDiff::Remove { index } => { vec.remove(index); },
-            VectorDiff::Truncate { length } => vec.truncate(length),
-            VectorDiff::Reset { values } => { *vec = values },
+            VectorDiff::Append { values } => {
+                vec.extend(values);
+            }
+            VectorDiff::Clear => {
+                vec.clear();
+            }
+            VectorDiff::PushFront { value } => {
+                vec.push_front(value);
+            }
+            VectorDiff::PushBack { value } => {
+                vec.push_back(value);
+            }
+            VectorDiff::PopFront => {
+                vec.pop_front();
+            }
+            VectorDiff::PopBack => {
+                vec.pop_back();
+            }
+            VectorDiff::Insert { index, value } => {
+                vec.insert(index, value);
+            }
+            VectorDiff::Set { index, value } => {
+                vec.set(index, value);
+            }
+            VectorDiff::Remove { index } => {
+                vec.remove(index);
+            }
+            VectorDiff::Truncate { length } => {
+                vec.truncate(length);
+            }
+            VectorDiff::Reset { values } => {
+                *vec = values;
+            }
         }
     }
 }

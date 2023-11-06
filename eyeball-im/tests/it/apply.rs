@@ -1,6 +1,6 @@
 use imbl::vector;
 
-use eyeball_im::{VectorDiff};
+use eyeball_im::VectorDiff;
 
 #[test]
 fn reset_larger() {
