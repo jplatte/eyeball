@@ -439,7 +439,6 @@ impl<T: Clone> VectorDiff<T> {
     }
 }
 
-
 fn vector_map<T: Clone, U: Clone>(v: Vector<T>, f: impl FnMut(T) -> U) -> Vector<U> {
     v.into_iter().map(f).collect()
 }
