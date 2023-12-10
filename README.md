@@ -3,15 +3,16 @@
 > eyeball (verb) - synonym for observe
 
 Add observability to your Rust types!
+Currently, polling observables is only possibly in async Rust,
+but this constraint might be lifted in the future.
 
-There are two Rust crates to be found in this repository, both containing types
-that broadcast changes made to them to subscribers (which can currently only be
-polled using `async` / `.await`):
+This repository hosts the following crates:
 
 - [eyeball](./eyeball/) – Contains the basic `Observable` type and things related to that
 - [eyeball-im](./eyeball-im/) – Contains observable collections (currently only `ObservableVector`)
+- [eyeball-im-util](./eyeball-im-util/) – Contains additional utilities on top of `eyeball-im`
 
-Click on one of those two links to find out more.
+Click on one of the links to find out more.
 
 ## License
 
