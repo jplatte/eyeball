@@ -17,6 +17,8 @@ use super::{
 pin_project! {
     /// A [`VectorDiff`] stream adapter that presents a filtered view of the
     /// underlying [`ObservableVector`]s items.
+    ///
+    /// [`ObservableVector`]: eyeball_im::ObservableVector
     pub struct Filter<S, F> {
         #[pin]
         inner: FilterImpl<S>,
@@ -72,6 +74,8 @@ where
 pin_project! {
     /// A [`VectorDiff`] stream adapter that presents a filter+mapped view of
     /// the underlying [`ObservableVector`]s items.
+    ///
+    /// [`ObservableVector`]: eyeball_im::ObservableVector
     pub struct FilterMap<S, F> {
         #[pin]
         inner: FilterImpl<S>,

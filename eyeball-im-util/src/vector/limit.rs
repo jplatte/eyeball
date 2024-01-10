@@ -19,7 +19,7 @@ pin_project! {
     /// A [`VectorDiff`] stream adapter that presents a limited view of the
     /// underlying [`ObservableVector`]s items.
     ///
-    /// For example, let `S` be a `Stream<Item = VectorDiff>`. The `Vector`
+    /// For example, let `S` be a `Stream<Item = VectorDiff>`. The [`Vector`]
     /// represented by `S` can have any length, but one may want to virtually
     /// _limit_ this `Vector` to a certain size. Then this `Limit` adapter is
     /// appropriate.
@@ -29,7 +29,10 @@ pin_project! {
     /// removed and new values must be inserted. This fact is important if the
     /// items of the `Vector` have a non-negligible size.
     ///
-    /// It's OK to have a limit larger than the length of the observed `Vector`.
+    /// It's okay to have a limit larger than the length of the observed
+    /// `Vector`.
+    ///
+    /// [`ObservableVector`]: eyeball_im::ObservableVector
     #[project = LimitProj]
     pub struct Limit<S, L>
     where
