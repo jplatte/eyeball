@@ -1,3 +1,8 @@
+# 0.5.2
+
+- Optimize the implementation of the `Limit` adapter
+- Fix broken links in the documentation
+
 # 0.5.1
 
 - Fix a bug where the `Limit` adapter would fail to register interest in new
