@@ -3,6 +3,7 @@
 mod filter;
 mod limit;
 mod ops;
+mod sort;
 mod traits;
 
 use eyeball_im::VectorDiff;
@@ -12,6 +13,7 @@ use self::ops::{VectorDiffContainerFamilyMember, VectorDiffContainerOps};
 pub use self::{
     filter::{Filter, FilterMap},
     limit::{EmptyLimitStream, Limit},
+    sort::Sort,
     traits::{
         BatchedVectorSubscriber, VectorDiffContainer, VectorObserver, VectorObserverExt,
         VectorSubscriberExt,
