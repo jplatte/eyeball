@@ -1,6 +1,6 @@
 use eyeball_im::{ObservableVector, VectorDiff};
 use eyeball_im_util::vector::VectorObserverExt;
-use imbl::{vector, Vector};
+use imbl::vector;
 use std::cmp::Ordering;
 use stream_assert::{assert_closed, assert_next_eq, assert_pending};
 
@@ -58,7 +58,6 @@ fn append() {
         *ob,
         vector!['d', 'a', 'e', 'f', 'g', 'b', 'i', 'h', 'c', 'j', 'a', 'k', 'l', 'j', 'm', 'j']
     );
-    assert_eq!(*ob, map_buffered_vector(sub.buffered_vector()));
 
     drop(ob);
     assert_closed!(sub);
@@ -76,7 +75,6 @@ fn clear() {
     assert_next_eq!(sub, VectorDiff::Append { values: vector!['a', 'b', 'c'] });
 
     assert_eq!(*ob, vector!['b', 'a', 'c']);
-    assert_eq!(*ob, map_buffered_vector(sub.buffered_vector()));
 
     // Let's clear it.
     ob.clear();
@@ -119,7 +117,6 @@ fn push_front() {
 
     // Items in the vector have been pushed front and are not sorted.
     assert_eq!(*ob, vector!['c', 'd', 'a', 'b']);
-    assert_eq!(*ob, map_buffered_vector(sub.buffered_vector()));
 
     drop(ob);
     assert_closed!(sub);
@@ -154,7 +151,6 @@ fn push_back() {
 
     // Items in the vector have been pushed back and are not sorted.
     assert_eq!(*ob, vector!['b', 'a', 'd', 'c']);
-    assert_eq!(*ob, map_buffered_vector(sub.buffered_vector()));
 
     drop(ob);
     assert_closed!(sub);
@@ -194,7 +190,6 @@ fn insert() {
 
     // Items in the vector have been inserted and are not sorted.
     assert_eq!(*ob, vector!['b', 'e', 'd', 'c', 'a']);
-    assert_eq!(*ob, map_buffered_vector(sub.buffered_vector()));
 
     drop(ob);
     assert_closed!(sub);
@@ -322,7 +317,6 @@ fn remove() {
 
     // Items in the vector have been removed and are not sorted.
     assert_eq!(*ob, vector!['b', 'd']);
-    assert_eq!(*ob, map_buffered_vector(sub.buffered_vector()));
 
     drop(ob);
     assert_closed!(sub);
@@ -370,7 +364,6 @@ fn set() {
 
     // Items in the vector have been updated and are not sorted.
     assert_eq!(*ob, vector!['h', 'e', 'f', 'g']);
-    assert_eq!(*ob, map_buffered_vector(sub.buffered_vector()));
 
     drop(ob);
     assert_closed!(sub);
@@ -399,7 +392,6 @@ fn truncate() {
 
     // Items in the vector have been truncated and are not sorted.
     assert_eq!(*ob, vector!['c', 'd']);
-    assert_eq!(*ob, map_buffered_vector(sub.buffered_vector()));
 
     // Append other items.
     ob.append(vector!['b', 'x', 'y']);
@@ -430,18 +422,7 @@ fn reset() {
 
     // Items in the vector have been inserted  and are not sorted.
     assert_eq!(*ob, vector!['c', 'd', 'a', 'b', 'f']);
-    assert_eq!(*ob, map_buffered_vector(sub.buffered_vector()));
 
     drop(ob);
     assert_closed!(sub);
-}
-
-fn map_buffered_vector<T>(vector: &Vector<(usize, T)>) -> Vector<T>
-where
-    T: Clone,
-{
-    let mut vector = vector.clone();
-    vector.sort_by(|(left, _), (right, _)| left.cmp(right));
-
-    vector.into_iter().map(|(_, value)| value).collect()
 }

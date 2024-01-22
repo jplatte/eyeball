@@ -131,12 +131,6 @@ where
             },
         )
     }
-
-    /// For testing purposes only.
-    #[doc(hidden)]
-    pub fn buffered_vector(&self) -> &Vector<(UnsortedIndex, VectorDiffContainerStreamElement<S>)> {
-        &self.buffered_vector
-    }
 }
 
 impl<'a, S, F> Stream for SortBy<'a, S, F>
