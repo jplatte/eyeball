@@ -304,7 +304,7 @@ where
 
             // Shift all unsorted indices to the right.
             // Also, find where to insert the `new_value`.
-            match buffered_vector
+            let position = buffered_vector
                 .iter_mut()
                 .enumerate()
                 .fold(None, |mut position, (index, (unsorted_index, value))| {
@@ -318,8 +318,9 @@ where
                 })
                 // If `buffered_vector` is empty, we want to emit a `VectorDiff::PushFront`. Let's
                 // map `position = None` to `position = Some(0)`.
-                .or_else(|| buffered_vector.is_empty().then_some(0))
-            {
+                .or_else(|| buffered_vector.is_empty().then_some(0));
+
+            match position {
                 // At the beginning? Let's emit a `VectorDiff::PushFront`.
                 Some(0) => {
                     buffered_vector.push_front((unsorted_index, new_value.clone()));
@@ -364,7 +365,7 @@ where
         VectorDiff::Insert { index: new_unsorted_index, value: new_value } => {
             // Shift all unsorted indices after `new_unsorted_index` to the right.
             // Also, find where to insert the `new_value`.
-            match buffered_vector.iter_mut().enumerate().fold(
+            let position = buffered_vector.iter_mut().enumerate().fold(
                 None,
                 |mut position, (index, (unsorted_index, value))| {
                     if position.is_none() && compare(value, &new_value).is_ge() {
@@ -377,7 +378,9 @@ where
 
                     position
                 },
-            ) {
+            );
+
+            match position {
                 // At the beginning? Let's emit a `VectorDiff::PushFront`.
                 Some(0) => {
                     buffered_vector.push_front((new_unsorted_index, new_value.clone()));
@@ -400,7 +403,7 @@ where
 
             // Find the position and shift all unsorted indices to the left safely.
             // Also, find the value to remove.
-            match buffered_vector
+            let position = buffered_vector
                 .iter_mut()
                 .enumerate()
                 .fold(None, |mut position, (index, (unsorted_index, _))| {
@@ -416,8 +419,9 @@ where
 
                     position
                 })
-                .expect("`buffered_vector` must have an item with an unsorted index of 0")
-            {
+                .expect("`buffered_vector` must have an item with an unsorted index of 0");
+
+            match position {
                 // At the beginning? Let's emit a `VectorDiff::PopFront`.
                 0 => {
                     buffered_vector.pop_front();
@@ -468,7 +472,7 @@ where
             // Shift all items with an `unsorted_index` greater than `new_unsorted_index` to
             // the left.
             // Also, find the value to remove.
-            match buffered_vector
+            let position = buffered_vector
                 .iter_mut()
                 .enumerate()
                 .fold(None, |mut position, (index, (unsorted_index, _))| {
@@ -482,8 +486,9 @@ where
 
                     position
                 })
-                .expect("`buffered_vector` must contain an item with an unsorted index of `new_unsorted_index`")
-            {
+                .expect("`buffered_vector` must contain an item with an unsorted index of `new_unsorted_index`");
+
+            match position {
                 // At the beginning? Let's emit a `VectorDiff::PopFront`.
                 0 => {
                     buffered_vector.pop_front();
@@ -508,7 +513,7 @@ where
             //
             // Find the `old_index` and the `new_index`, respectively representing the
             // _from_ and _to_ positions of the value to move.
-            let (old_index, new_index) = match buffered_vector.iter().enumerate().try_fold(
+            let indices = buffered_vector.iter().enumerate().try_fold(
                 (None, None),
                 |(mut old_index, mut new_index), (index, (unsorted_index, value))| {
                     // `unsorted_index`s are unique. `old_index` can be written only once: no
@@ -529,7 +534,9 @@ where
                         ControlFlow::Continue((old_index, new_index))
                     }
                 },
-            ) {
+            );
+
+            let (old_index, new_index) = match indices {
                 ControlFlow::Break((old_index, new_index))
                 | ControlFlow::Continue((old_index, new_index)) => (
                     old_index.expect("`buffered_vector` must contain an item with an unsorted index of `new_unsorted_index`"),
