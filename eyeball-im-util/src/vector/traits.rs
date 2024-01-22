@@ -12,7 +12,7 @@ use super::{
     ops::{
         VecVectorDiffFamily, VectorDiffContainerFamily, VectorDiffContainerOps, VectorDiffFamily,
     },
-    EmptyLimitStream, Filter, FilterMap, Limit, Sort,
+    EmptyLimitStream, Filter, FilterMap, Limit, SortBy,
 };
 
 /// Abstraction over stream items that the adapters in this module can deal
@@ -162,13 +162,13 @@ where
 
     /// Sort the observed values with `compare`.
     ///
-    /// See [`Sort`] for more details.
-    fn sort<F>(self, compare: F) -> (Vector<T>, Sort<Self::Stream, F>)
+    /// See [`SortBy`] for more details.
+    fn sort_by<'a, F>(self, compare: &'a F) -> (Vector<T>, SortBy<'a, Self::Stream, F>)
     where
-        F: Fn(&T, &T) -> Ordering + Clone,
+        F: Fn(&T, &T) -> Ordering,
     {
         let (items, stream) = self.into_parts();
-        Sort::new(items, stream, compare)
+        SortBy::new(items, stream, compare)
     }
 }
 

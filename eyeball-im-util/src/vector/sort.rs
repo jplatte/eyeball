@@ -40,9 +40,9 @@ pin_project! {
     /// # fn main() {
     /// // Our vector.
     /// let mut ob = ObservableVector::<char>::new();
-    /// let (values, mut sub) = ob.subscribe().sort(cmp);
-    /// //                                          ^^^
-    /// //                                          | our comparison function
+    /// let (values, mut sub) = ob.subscribe().sort_by(&cmp);
+    /// //                                             ^^^^
+    /// //                                             | our comparison function
     ///
     /// assert!(values.is_empty());
     /// assert_pending!(sub);
@@ -73,7 +73,7 @@ pin_project! {
     /// //           |   with `VectorDiff::Insert { index: 2, .. }`
     /// //           with `VectorDiff::PushFront { .. }`
     ///
-    /// // Technically, `Sort` emits `VectorDiff`s that mimic a sorted `Vector`.
+    /// // Technically, `SortBy` emits `VectorDiff`s that mimic a sorted `Vector`.
     ///
     /// drop(ob);
     /// assert_closed!(sub);
@@ -82,7 +82,7 @@ pin_project! {
     ///
     /// [`ObservableVector`]: eyeball_im::ObservableVector
     #[project = SortProj]
-    pub struct Sort<S, F>
+    pub struct SortBy<'a, S, F>
     where
         S: Stream,
         S::Item: VectorDiffContainer,
@@ -92,7 +92,7 @@ pin_project! {
         inner_stream: S,
 
         // The comparison function to sort items.
-        compare: F,
+        compare: &'a F,
 
         // This is the **sorted** buffered vector.
         buffered_vector: Vector<(UnsortedIndex, VectorDiffContainerStreamElement<S>)>,
@@ -106,25 +106,24 @@ pin_project! {
     }
 }
 
-impl<S, F> Sort<S, F>
+impl<'a, S, F> SortBy<'a, S, F>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
-    F: Fn(&VectorDiffContainerStreamElement<S>, &VectorDiffContainerStreamElement<S>) -> Ordering
-        + Clone,
+    F: Fn(&VectorDiffContainerStreamElement<S>, &VectorDiffContainerStreamElement<S>) -> Ordering,
 {
-    /// Create a new `Sort` with the given (unsorted) initial values, stream
+    /// Create a new `SortBy` with the given (unsorted) initial values, stream
     /// of `VectorDiff` updates for those values, and the comparison function.
     pub fn new(
         initial_values: Vector<VectorDiffContainerStreamElement<S>>,
         inner_stream: S,
-        compare: F,
+        compare: &'a F,
     ) -> (Vector<VectorDiffContainerStreamElement<S>>, Self) {
         let mut initial_values = initial_values.into_iter().enumerate().collect::<Vector<_>>();
         initial_values.sort_by(|(_, left), (_, right)| compare(left, right));
 
         (
-            initial_values.clone().into_iter().map(|(_, value)| value).collect(),
+            initial_values.iter().map(|(_, value)| value.clone()).collect(),
             Self {
                 inner_stream,
                 compare,
@@ -141,12 +140,11 @@ where
     }
 }
 
-impl<S, F> Stream for Sort<S, F>
+impl<'a, S, F> Stream for SortBy<'a, S, F>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
-    F: Fn(&VectorDiffContainerStreamElement<S>, &VectorDiffContainerStreamElement<S>) -> Ordering
-        + Clone,
+    F: Fn(&VectorDiffContainerStreamElement<S>, &VectorDiffContainerStreamElement<S>) -> Ordering,
 {
     type Item = S::Item;
 
@@ -155,12 +153,11 @@ where
     }
 }
 
-impl<S, F> SortProj<'_, S, F>
+impl<S, F> SortProj<'_, '_, S, F>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
-    F: Fn(&VectorDiffContainerStreamElement<S>, &VectorDiffContainerStreamElement<S>) -> Ordering
-        + Clone,
+    F: Fn(&VectorDiffContainerStreamElement<S>, &VectorDiffContainerStreamElement<S>) -> Ordering,
 {
     fn poll_next(&mut self, cx: &mut task::Context<'_>) -> Poll<Option<S::Item>> {
         loop {
@@ -176,11 +173,7 @@ where
 
             // Consume and apply the diffs if possible.
             let ready = diffs.push_into_buffer(self.ready_values, |diff| {
-                handle_diff_and_update_buffered_vector(
-                    diff,
-                    self.compare.clone(),
-                    self.buffered_vector,
-                )
+                handle_diff_and_update_buffered_vector(diff, self.compare, self.buffered_vector)
             });
 
             if let Some(diff) = ready {
@@ -194,14 +187,14 @@ where
 
 // Map a `VectorDiff` to potentially `VectorDiff`s. Keep in mind that
 // `buffered_vector` contains the sorted values.
-fn handle_diff_and_update_buffered_vector<T, F>(
+fn handle_diff_and_update_buffered_vector<'a, T, F>(
     diff: VectorDiff<T>,
-    compare: F,
+    compare: &'a F,
     buffered_vector: &mut Vector<(usize, T)>,
 ) -> SmallVec<[VectorDiff<T>; 2]>
 where
     T: Clone,
-    F: Fn(&T, &T) -> Ordering + Clone,
+    F: Fn(&T, &T) -> Ordering,
 {
     let mut result = SmallVec::new();
 
