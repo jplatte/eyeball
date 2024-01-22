@@ -81,7 +81,6 @@ pin_project! {
     /// ```
     ///
     /// [`ObservableVector`]: eyeball_im::ObservableVector
-    #[project = SortProj]
     pub struct SortBy<'a, S, F>
     where
         S: Stream,
@@ -149,31 +148,22 @@ where
     type Item = S::Item;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Option<Self::Item>> {
-        self.project().poll_next(cx)
-    }
-}
+        let mut this = self.project();
 
-impl<S, F> SortProj<'_, '_, S, F>
-where
-    S: Stream,
-    S::Item: VectorDiffContainer,
-    F: Fn(&VectorDiffContainerStreamElement<S>, &VectorDiffContainerStreamElement<S>) -> Ordering,
-{
-    fn poll_next(&mut self, cx: &mut task::Context<'_>) -> Poll<Option<S::Item>> {
         loop {
             // First off, if any values are ready, return them.
-            if let Some(value) = S::Item::pop_from_buffer(self.ready_values) {
+            if let Some(value) = S::Item::pop_from_buffer(this.ready_values) {
                 return Poll::Ready(Some(value));
             }
 
             // Poll `VectorDiff`s from the `inner_stream`.
-            let Some(diffs) = ready!(self.inner_stream.as_mut().poll_next(cx)) else {
+            let Some(diffs) = ready!(this.inner_stream.as_mut().poll_next(cx)) else {
                 return Poll::Ready(None);
             };
 
             // Consume and apply the diffs if possible.
-            let ready = diffs.push_into_buffer(self.ready_values, |diff| {
-                handle_diff_and_update_buffered_vector(diff, self.compare, self.buffered_vector)
+            let ready = diffs.push_into_buffer(this.ready_values, |diff| {
+                handle_diff_and_update_buffered_vector(diff, this.compare, this.buffered_vector)
             });
 
             if let Some(diff) = ready {
