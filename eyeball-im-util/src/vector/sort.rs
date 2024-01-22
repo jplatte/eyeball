@@ -171,9 +171,9 @@ where
 
 // Map a `VectorDiff` to potentially `VectorDiff`s. Keep in mind that
 // `buffered_vector` contains the sorted values.
-fn handle_diff_and_update_buffered_vector<'a, T, F>(
+fn handle_diff_and_update_buffered_vector<T, F>(
     diff: VectorDiff<T>,
-    compare: &'a F,
+    compare: &F,
     buffered_vector: &mut Vector<(usize, T)>,
 ) -> SmallVec<[VectorDiff<T>; 2]>
 where
