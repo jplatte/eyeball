@@ -1,6 +1,6 @@
 use std::{
     cmp::Ordering,
-    ops::{ControlFlow, Not},
+    ops::Not,
     pin::Pin,
     task::{self, ready, Poll},
 };
@@ -169,8 +169,13 @@ where
     }
 }
 
-// Map a `VectorDiff` to potentially `VectorDiff`s. Keep in mind that
-// `buffered_vector` contains the sorted values.
+/// Map a `VectorDiff` to potentially `VectorDiff`s. Keep in mind that
+/// `buffered_vector` contains the sorted values.
+///
+/// When looking for the _position_ of a value (e.g. where to insert a new
+/// value?), `Vector::binary_search_by` is used — it is possible because the
+/// `Vector` is sorted. When looking for the _unsorted index_ of a value,
+/// `Iterator::position` is used.
 fn handle_diff_and_update_buffered_vector<T, F>(
     diff: VectorDiff<T>,
     compare: &F,
@@ -210,12 +215,10 @@ where
                     values: new_values.into_iter().map(|(_, value)| value).collect(),
                 });
             } else {
-                let mut last_insertion_index = 0;
-
                 // Read the first item of `new_values`. We get a reference to it.
                 //
                 // Why using `Vector::get`? We _could_ use `new_values.pop_front()` to get
-                // ownership of `new_value`. But in the slow path, in the `None` branch, we
+                // ownership of `new_value`. But in the slow path, in the `_` branch, we
                 // would need to generate a `VectorDiff::PushBack`, followed by the
                 // `VectorDiff::Append` outside this loop, which is 2 diffs. Or, alternatively,
                 // we would need to `push_front` the `new_value` again, which has a cost too.
@@ -245,14 +248,12 @@ where
                     //
                     // Look for the position where to insert the `new_value`.
                     else {
-                        // Skip the first items up to the `last_insertion_index`, and find the
-                        // position where to insert `new_value`.
+                        // Find the position where to insert `new_value`.
                         match buffered_vector
-                            .iter()
-                            .skip(last_insertion_index)
-                            .position(|(_, value)| compare(value, new_value).is_ge())
+                            .binary_search_by(|(_, value)| compare(value, new_value))
                         {
-                            Some(index) => {
+                            // Somewhere?
+                            Ok(index) | Err(index) if index != buffered_vector.len() => {
                                 // Insert the new value. We get it by using `pop_front` on
                                 // `new_values`. This time the new value is consumed.
                                 let (unsorted_index, new_value) =
@@ -269,11 +270,9 @@ where
                                         VectorDiff::Insert { index, value: new_value }
                                     },
                                 );
-
-                                // Finally, let's update the `last_insertion_index`.
-                                last_insertion_index = index;
                             }
-                            None => {
+                            // At the end?
+                            _ => {
                                 // `new_value` isn't consumed. Let's break the loop and emit a
                                 // `VectorDiff::Append` just after.
                                 break;
@@ -303,60 +302,48 @@ where
             let unsorted_index = 0;
 
             // Shift all unsorted indices to the right.
-            // Also, find where to insert the `new_value`.
-            let position = buffered_vector
-                .iter_mut()
-                .enumerate()
-                .fold(None, |mut position, (index, (unsorted_index, value))| {
-                    if position.is_none() && compare(value, &new_value).is_ge() {
-                        position = Some(index);
-                    }
+            buffered_vector.iter_mut().for_each(|(unsorted_index, _)| *unsorted_index += 1);
 
-                    *unsorted_index += 1;
-
-                    position
-                })
-                // If `buffered_vector` is empty, we want to emit a `VectorDiff::PushFront`. Let's
-                // map `position = None` to `position = Some(0)`.
-                .or_else(|| buffered_vector.is_empty().then_some(0));
-
-            match position {
+            // Find where to insert the `new_value`.
+            match buffered_vector.binary_search_by(|(_, value)| compare(value, &new_value)) {
                 // At the beginning? Let's emit a `VectorDiff::PushFront`.
-                Some(0) => {
+                Ok(0) | Err(0) => {
                     buffered_vector.push_front((unsorted_index, new_value.clone()));
                     result.push(VectorDiff::PushFront { value: new_value });
                 }
                 // Somewhere in the middle? Let's emit a `VectorDiff::Insert`.
-                Some(index) => {
+                Ok(index) | Err(index) if index != buffered_vector.len() => {
                     buffered_vector.insert(index, (unsorted_index, new_value.clone()));
                     result.push(VectorDiff::Insert { index, value: new_value });
                 }
                 // At the end? Let's emit a `VectorDiff::PushBack`.
-                None => {
+                _ => {
                     buffered_vector.push_back((unsorted_index, new_value.clone()));
                     result.push(VectorDiff::PushBack { value: new_value });
                 }
             }
         }
         VectorDiff::PushBack { value: new_value } => {
+            let buffered_vector_length = buffered_vector.len();
+
             // The unsorted index is inevitably the size of `buffered_vector`, because
             // we push a new item at the back of the vector.
-            let unsorted_index = buffered_vector.len();
+            let unsorted_index = buffered_vector_length;
 
             // Find where to insert the `new_value`.
-            match buffered_vector.iter().position(|(_, value)| compare(value, &new_value).is_ge()) {
+            match buffered_vector.binary_search_by(|(_, value)| compare(value, &new_value)) {
                 // At the beginning? Let's emit a `VectorDiff::PushFront`.
-                Some(0) => {
+                Ok(0) | Err(0) => {
                     buffered_vector.push_front((unsorted_index, new_value.clone()));
                     result.push(VectorDiff::PushFront { value: new_value });
                 }
                 // Somewhere in the middle? Let's emit a `VectorDiff::Insert`.
-                Some(index) => {
+                Ok(index) | Err(index) if index != buffered_vector_length => {
                     buffered_vector.insert(index, (unsorted_index, new_value.clone()));
                     result.push(VectorDiff::Insert { index, value: new_value });
                 }
                 // At the end? Let's emit a `VectorDiff::PushBack`.
-                None => {
+                _ => {
                     buffered_vector.push_back((unsorted_index, new_value.clone()));
                     result.push(VectorDiff::PushBack { value: new_value });
                 }
@@ -364,35 +351,26 @@ where
         }
         VectorDiff::Insert { index: new_unsorted_index, value: new_value } => {
             // Shift all unsorted indices after `new_unsorted_index` to the right.
-            // Also, find where to insert the `new_value`.
-            let position = buffered_vector.iter_mut().enumerate().fold(
-                None,
-                |mut position, (index, (unsorted_index, value))| {
-                    if position.is_none() && compare(value, &new_value).is_ge() {
-                        position = Some(index);
-                    }
+            buffered_vector.iter_mut().for_each(|(unsorted_index, _)| {
+                if *unsorted_index >= new_unsorted_index {
+                    *unsorted_index += 1;
+                }
+            });
 
-                    if *unsorted_index >= new_unsorted_index {
-                        *unsorted_index += 1;
-                    }
-
-                    position
-                },
-            );
-
-            match position {
+            // Find where to insert the `new_value`.
+            match buffered_vector.binary_search_by(|(_, value)| compare(value, &new_value)) {
                 // At the beginning? Let's emit a `VectorDiff::PushFront`.
-                Some(0) => {
+                Ok(0) | Err(0) => {
                     buffered_vector.push_front((new_unsorted_index, new_value.clone()));
                     result.push(VectorDiff::PushFront { value: new_value });
                 }
                 // Somewhere in the middle? Let's emit a `VectorDiff::Insert`.
-                Some(index) => {
+                Ok(index) | Err(index) if index != buffered_vector.len() => {
                     buffered_vector.insert(index, (new_unsorted_index, new_value.clone()));
                     result.push(VectorDiff::Insert { index, value: new_value });
                 }
                 // At the end? Let's emit a `VectorDiff::PushBack`.
-                None => {
+                _ => {
                     buffered_vector.push_back((new_unsorted_index, new_value.clone()));
                     result.push(VectorDiff::PushBack { value: new_value });
                 }
@@ -507,42 +485,21 @@ where
             }
         }
         VectorDiff::Set { index: new_unsorted_index, value: new_value } => {
-            let last_index = buffered_vector.len();
             // We need to _update_ the value to `new_value`, and to _move_ it (since it is a
             // new value, we need to sort it).
             //
             // Find the `old_index` and the `new_index`, respectively representing the
             // _from_ and _to_ positions of the value to move.
-            let indices = buffered_vector.iter().enumerate().try_fold(
-                (None, None),
-                |(mut old_index, mut new_index), (index, (unsorted_index, value))| {
-                    // `unsorted_index`s are unique. `old_index` can be written only once: no
-                    // need to check if `old_index` is `None`.
-                    if *unsorted_index == new_unsorted_index {
-                        old_index = Some(index);
-                    }
+            let old_index = buffered_vector
+                .iter()
+                .position(|(unsorted_index, _)| *unsorted_index == new_unsorted_index)
+                .expect("`buffered_vector` must contain an item with an unsorted index of `new_unsorted_index`");
 
-                    // Write `new_index` only once.
-                    if new_index.is_none() && compare(value, &new_value).is_ge() {
-                        new_index = Some(index);
-                    }
-
-                    // We found our two positions? Great! Let's break `try_fold`.
-                    if old_index.is_some() && new_index.is_some() {
-                        ControlFlow::Break((old_index, new_index))
-                    } else {
-                        ControlFlow::Continue((old_index, new_index))
-                    }
-                },
-            );
-
-            let (old_index, new_index) = match indices {
-                ControlFlow::Break((old_index, new_index))
-                | ControlFlow::Continue((old_index, new_index)) => (
-                    old_index.expect("`buffered_vector` must contain an item with an unsorted index of `new_unsorted_index`"),
-                    new_index.unwrap_or(last_index),
-                )
-            };
+            let new_index =
+                match buffered_vector.binary_search_by(|(_, value)| compare(value, &new_value)) {
+                    Ok(index) => index,
+                    Err(index) => index,
+                };
 
             match old_index.cmp(&new_index) {
                 // `old_index` is before `new_index`.

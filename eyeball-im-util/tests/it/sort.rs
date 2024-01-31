@@ -132,7 +132,7 @@ fn push_back() {
 
     // Push back on an empty vector.
     ob.push_back('b');
-    assert_next_eq!(sub, VectorDiff::PushBack { value: 'b' });
+    assert_next_eq!(sub, VectorDiff::PushFront { value: 'b' });
 
     // Push back on non-empty vector.
     // The new item should appear at position 0.
@@ -166,7 +166,7 @@ fn insert() {
 
     // Insert on an empty vector.
     ob.insert(0, 'b');
-    assert_next_eq!(sub, VectorDiff::PushBack { value: 'b' });
+    assert_next_eq!(sub, VectorDiff::PushFront { value: 'b' });
 
     // Insert on non-empty vector.
     // The new item should appear at position 0.
