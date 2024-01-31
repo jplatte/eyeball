@@ -11,8 +11,8 @@ use pin_project_lite::pin_project;
 use smallvec::SmallVec;
 
 use super::{
-    VectorDiffContainer, VectorDiffContainerOps, VectorDiffContainerStreamBuffer,
-    VectorDiffContainerStreamElement,
+    VectorDiffContainer, VectorDiffContainerOps, VectorDiffContainerStreamElement,
+    VectorDiffContainerStreamSortBuf,
 };
 
 type UnsortedIndex = usize;
@@ -101,7 +101,7 @@ pin_project! {
         // Thus, if the item type is just `VectorDiff<_>` (non-bached, can't
         // just add diffs to a `poll_next` result), we need a buffer to store the
         // possible extra items in.
-        ready_values: VectorDiffContainerStreamBuffer<S>,
+        ready_values: VectorDiffContainerStreamSortBuf<S>,
     }
 }
 
@@ -146,7 +146,7 @@ where
 
         loop {
             // First off, if any values are ready, return them.
-            if let Some(value) = S::Item::pop_from_buffer(this.ready_values) {
+            if let Some(value) = S::Item::pop_from_sort_buf(this.ready_values) {
                 return Poll::Ready(Some(value));
             }
 
@@ -156,7 +156,7 @@ where
             };
 
             // Consume and apply the diffs if possible.
-            let ready = diffs.push_into_buffer(this.ready_values, |diff| {
+            let ready = diffs.push_into_sort_buf(this.ready_values, |diff| {
                 handle_diff_and_update_buffered_vector(diff, this.compare, this.buffered_vector)
             });
 
