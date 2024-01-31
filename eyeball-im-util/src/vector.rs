@@ -3,6 +3,7 @@
 mod filter;
 mod limit;
 mod ops;
+mod sort;
 mod traits;
 
 use eyeball_im::VectorDiff;
@@ -12,6 +13,7 @@ use self::ops::{VectorDiffContainerFamilyMember, VectorDiffContainerOps};
 pub use self::{
     filter::{Filter, FilterMap},
     limit::{EmptyLimitStream, Limit},
+    sort::SortBy,
     traits::{
         BatchedVectorSubscriber, VectorDiffContainer, VectorObserver, VectorObserverExt,
         VectorSubscriberExt,
@@ -40,5 +42,5 @@ type VectorDiffContainerDiff<S> = VectorDiff<VectorDiffContainerStreamElement<S>
 
 /// Type alias for extracting the buffer type from a stream of
 /// [`VectorDiffContainer`]s.
-type VectorDiffContainerStreamLimitBuf<S> =
+type VectorDiffContainerStreamBuffer<S> =
     <<S as Stream>::Item as VectorDiffContainerOps<VectorDiffContainerStreamElement<S>>>::Buffer;

@@ -1,3 +1,4 @@
+use smallvec::SmallVec;
 use std::{
     cmp::{min, Ordering},
     mem,
@@ -6,10 +7,9 @@ use std::{
 };
 
 use super::{
-    VectorDiffContainer, VectorDiffContainerOps, VectorDiffContainerStreamElement,
-    VectorDiffContainerStreamLimitBuf, VectorObserver,
+    VectorDiffContainer, VectorDiffContainerOps, VectorDiffContainerStreamBuffer,
+    VectorDiffContainerStreamElement, VectorObserver,
 };
-use arrayvec::ArrayVec;
 use eyeball_im::VectorDiff;
 use futures_core::Stream;
 use imbl::Vector;
@@ -63,7 +63,7 @@ pin_project! {
         // with a limit of 2 on top: if an item is popped at the front then 10
         // is removed, but 12 has to be pushed back as it "enters" the "view".
         // That second `PushBack` diff is buffered here.
-        ready_values: VectorDiffContainerStreamLimitBuf<S>,
+        ready_values: VectorDiffContainerStreamBuffer<S>,
     }
 }
 
@@ -207,6 +207,7 @@ where
                 update_buffered_vector(&diff, self.buffered_vector);
                 handle_diff(diff, limit, prev_len, self.buffered_vector)
             });
+
             if let Some(diff) = ready {
                 return Poll::Ready(Some(diff));
             }
@@ -318,15 +319,15 @@ fn handle_diff<T: Clone>(
     limit: usize,
     prev_len: usize,
     buffered_vector: &Vector<T>,
-) -> ArrayVec<VectorDiff<T>, 2> {
+) -> SmallVec<[VectorDiff<T>; 2]> {
     // If the limit is zero, we have nothing to do.
     if limit == 0 {
-        return ArrayVec::new();
+        return SmallVec::new();
     }
 
     let is_full = prev_len >= limit;
+    let mut res = SmallVec::new();
 
-    let mut res = ArrayVec::new();
     match diff {
         VectorDiff::Append { mut values } => {
             if is_full {

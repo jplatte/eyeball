@@ -1,5 +1,7 @@
 //! Public traits.
 
+use std::cmp::Ordering;
+
 use eyeball_im::{
     VectorDiff, VectorSubscriber, VectorSubscriberBatchedStream, VectorSubscriberStream,
 };
@@ -10,7 +12,7 @@ use super::{
     ops::{
         VecVectorDiffFamily, VectorDiffContainerFamily, VectorDiffContainerOps, VectorDiffFamily,
     },
-    EmptyLimitStream, Filter, FilterMap, Limit,
+    EmptyLimitStream, Filter, FilterMap, Limit, SortBy,
 };
 
 /// Abstraction over stream items that the adapters in this module can deal
@@ -156,6 +158,17 @@ where
     {
         let (items, stream) = self.into_parts();
         Limit::dynamic_with_initial_limit(items, stream, initial_limit, limit_stream)
+    }
+
+    /// Sort the observed values with `compare`.
+    ///
+    /// See [`SortBy`] for more details.
+    fn sort_by<F>(self, compare: &F) -> (Vector<T>, SortBy<'_, Self::Stream, F>)
+    where
+        F: Fn(&T, &T) -> Ordering,
+    {
+        let (items, stream) = self.into_parts();
+        SortBy::new(items, stream, compare)
     }
 }
 
