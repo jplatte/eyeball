@@ -12,6 +12,7 @@ keywords.workspace = true
 all-features = true
 
 [dependencies]
+arrayvec = "0.7.4"
 eyeball-im = { version = "0.4.2", path = "../eyeball-im" }
 futures-core.workspace = true
 imbl = "2.0.0"
