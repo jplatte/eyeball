@@ -12,6 +12,7 @@ keywords.workspace = true
 all-features = true
 
 [dependencies]
+futures.workspace = true
 futures-core.workspace = true
 imbl = "2.0.0"
 tokio.workspace = true

@@ -1,5 +1,6 @@
 use std::{fmt, ops};
 
+use futures::{future::join_all, Future};
 use imbl::Vector;
 use tokio::sync::broadcast::{self, Sender};
 
@@ -414,6 +415,35 @@ impl<T: Clone> VectorDiff<T> {
         }
     }
 
+    /// Transform `VectorDiff<T>` into `VectorDiff<U>` by applying the given
+    /// function to any contained items.
+    ///
+    /// Values are mapped concurrently, using [`join_all`].
+    pub async fn async_map<U: Clone, F: Future<Output = U>>(
+        self,
+        mut f: impl FnMut(T) -> F,
+    ) -> VectorDiff<U> {
+        match self {
+            VectorDiff::Append { values } => {
+                VectorDiff::Append { values: vector_async_map(values, f).await }
+            }
+            VectorDiff::Clear => VectorDiff::Clear,
+            VectorDiff::PushFront { value } => VectorDiff::PushFront { value: f(value).await },
+            VectorDiff::PushBack { value } => VectorDiff::PushBack { value: f(value).await },
+            VectorDiff::PopFront => VectorDiff::PopFront,
+            VectorDiff::PopBack => VectorDiff::PopBack,
+            VectorDiff::Insert { index, value } => {
+                VectorDiff::Insert { index, value: f(value).await }
+            }
+            VectorDiff::Set { index, value } => VectorDiff::Set { index, value: f(value).await },
+            VectorDiff::Remove { index } => VectorDiff::Remove { index },
+            VectorDiff::Truncate { length } => VectorDiff::Truncate { length },
+            VectorDiff::Reset { values } => {
+                VectorDiff::Reset { values: vector_async_map(values, f).await }
+            }
+        }
+    }
+
     /// Applies this [`VectorDiff`] to a vector.
     ///
     /// This is useful to keep two vectors in sync, with potentially one
@@ -463,4 +493,11 @@ impl<T: Clone> VectorDiff<T> {
 
 fn vector_map<T: Clone, U: Clone>(v: Vector<T>, f: impl FnMut(T) -> U) -> Vector<U> {
     v.into_iter().map(f).collect()
+}
+
+async fn vector_async_map<T: Clone, U: Clone, F: Future<Output = U>>(
+    v: Vector<T>,
+    f: impl FnMut(T) -> F,
+) -> Vector<U> {
+    join_all(v.into_iter().map(f)).await.into_iter().collect()
 }

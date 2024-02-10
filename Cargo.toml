@@ -10,6 +10,7 @@ keywords = ["async", "observable", "reactive"]
 
 [workspace.dependencies]
 assert_matches = "1.5.0"
+futures = "0.3.26"
 futures-core = "0.3.26"
 futures-util = { version = "0.3.26", default-features = false }
 readlock = "0.1.5"
