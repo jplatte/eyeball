@@ -1,3 +1,7 @@
+# 0.5.3
+
+- Add the `SortBy` adapter
+
 # 0.5.2
 
 - Optimize the implementation of the `Limit` adapter

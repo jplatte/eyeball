@@ -1,6 +1,6 @@
 [package]
 name = "eyeball-im-util"
-version = "0.5.2"
+version = "0.5.3"
 edition = "2021"
 description = "Helpful utilities for `eyeball-im`."
 license.workspace = true
