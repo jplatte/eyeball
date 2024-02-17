@@ -81,7 +81,7 @@ pin_project! {
     /// ```
     ///
     /// [`ObservableVector`]: eyeball_im::ObservableVector
-    pub struct SortBy<'a, S, F>
+    pub struct SortBy<S, F>
     where
         S: Stream,
         S::Item: VectorDiffContainer,
@@ -91,7 +91,7 @@ pin_project! {
         inner_stream: S,
 
         // The comparison function to sort items.
-        compare: &'a F,
+        compare: F,
 
         // This is the **sorted** buffered vector.
         buffered_vector: Vector<(UnsortedIndex, VectorDiffContainerStreamElement<S>)>,
@@ -105,7 +105,7 @@ pin_project! {
     }
 }
 
-impl<'a, S, F> SortBy<'a, S, F>
+impl<S, F> SortBy<S, F>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
@@ -116,7 +116,7 @@ where
     pub fn new(
         initial_values: Vector<VectorDiffContainerStreamElement<S>>,
         inner_stream: S,
-        compare: &'a F,
+        compare: F,
     ) -> (Vector<VectorDiffContainerStreamElement<S>>, Self) {
         let mut initial_values = initial_values.into_iter().enumerate().collect::<Vector<_>>();
         initial_values.sort_by(|(_, left), (_, right)| compare(left, right));
@@ -133,7 +133,7 @@ where
     }
 }
 
-impl<'a, S, F> Stream for SortBy<'a, S, F>
+impl<S, F> Stream for SortBy<S, F>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
