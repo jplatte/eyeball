@@ -1,3 +1,10 @@
+# unreleased
+
+- Remove lifetime parameter from `SortBy`
+- Allow `SortBy::new` and `VectorObserverExt::sort_by` to accept a callable
+  directly, instead of through a reference (references still work since `&F`
+  also implements `Fn(X) -> Y` if `F` does)
+
 # 0.5.3
 
 - Add the `SortBy` adapter
