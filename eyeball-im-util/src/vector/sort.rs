@@ -25,24 +25,11 @@ pin_project! {
     /// use eyeball_im::{ObservableVector, VectorDiff};
     /// use eyeball_im_util::vector::VectorObserverExt;
     /// use imbl::vector;
-    /// use std::cmp::Ordering;
     /// use stream_assert::{assert_closed, assert_next_eq, assert_pending};
     ///
-    /// // A comparison function that is used to sort our
-    /// // `ObservableVector` values.
-    /// fn cmp<T>(left: &T, right: &T) -> Ordering
-    /// where
-    ///     T: Ord,
-    /// {
-    ///     left.cmp(right)
-    /// }
-    ///
-    /// # fn main() {
     /// // Our vector.
     /// let mut ob = ObservableVector::<char>::new();
-    /// let (values, mut sub) = ob.subscribe().sort_by(&cmp);
-    /// //                                             ^^^^
-    /// //                                             | our comparison function
+    /// let (values, mut sub) = ob.subscribe().sort();
     ///
     /// assert!(values.is_empty());
     /// assert_pending!(sub);
@@ -53,11 +40,11 @@ pin_project! {
     /// assert_next_eq!(sub, VectorDiff::Append { values: vector!['b', 'd', 'e'] });
     ///
     /// // Let's recap what we have. `ob` is our `ObservableVector`,
-    /// // `sub` is the “sorted view”/“sorted stream” of `ob`:
+    /// // `sub` is the “sorted view” / “sorted stream” of `ob`:
     /// // | `ob`  | d b e |
     /// // | `sub` | b d e |
     ///
-    /// // Append other multiple values.
+    /// // Append multiple other values.
     /// ob.append(vector!['f', 'g', 'a', 'c']);
     /// // We get three `VectorDiff`s!
     /// assert_next_eq!(sub, VectorDiff::PushFront { value: 'a' });
@@ -73,12 +60,60 @@ pin_project! {
     /// //           |   with `VectorDiff::Insert { index: 2, .. }`
     /// //           with `VectorDiff::PushFront { .. }`
     ///
-    /// // Technically, `SortBy` emits `VectorDiff`s that mimic a sorted `Vector`.
+    /// // Technically, `Sort` emits `VectorDiff`s that mimic a sorted `Vector`.
     ///
     /// drop(ob);
     /// assert_closed!(sub);
-    /// # }
     /// ```
+    ///
+    /// [`ObservableVector`]: eyeball_im::ObservableVector
+    pub struct Sort<S>
+    where
+        S: Stream,
+        S::Item: VectorDiffContainer,
+    {
+        #[pin]
+        inner: SortImpl<S>,
+    }
+}
+
+impl<S> Sort<S>
+where
+    S: Stream,
+    S::Item: VectorDiffContainer,
+    VectorDiffContainerStreamElement<S>: Ord,
+{
+    /// Create a new `Sort` with the given (unsorted) initial values and stream
+    /// of `VectorDiff` updates for those values.
+    pub fn new(
+        initial_values: Vector<VectorDiffContainerStreamElement<S>>,
+        inner_stream: S,
+    ) -> (Vector<VectorDiffContainerStreamElement<S>>, Self) {
+        let (initial_sorted, inner) = SortImpl::new(initial_values, inner_stream, Ord::cmp);
+        (initial_sorted, Self { inner })
+    }
+}
+
+impl<S> Stream for Sort<S>
+where
+    S: Stream,
+    S::Item: VectorDiffContainer,
+    VectorDiffContainerStreamElement<S>: Ord,
+{
+    type Item = S::Item;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Option<Self::Item>> {
+        self.project().inner.poll_next(cx, Ord::cmp)
+    }
+}
+
+pin_project! {
+    /// A [`VectorDiff`] stream adapter that presents a sorted view of the
+    /// underlying [`ObservableVector`] items.
+    ///
+    /// Sorting is done using a custom comparison function. Otherwise this
+    /// adapter works exactly like [`Sort`], see that type's documentation for
+    /// details on how this adapter operates.
     ///
     /// [`ObservableVector`]: eyeball_im::ObservableVector
     pub struct SortBy<S, F>
@@ -86,22 +121,11 @@ pin_project! {
         S: Stream,
         S::Item: VectorDiffContainer,
     {
-        // The main stream to poll items from.
         #[pin]
-        inner_stream: S,
+        inner: SortImpl<S>,
 
         // The comparison function to sort items.
         compare: F,
-
-        // This is the **sorted** buffered vector.
-        buffered_vector: Vector<(UnsortedIndex, VectorDiffContainerStreamElement<S>)>,
-
-        // This adapter can produce many items per item of the underlying stream.
-        //
-        // Thus, if the item type is just `VectorDiff<_>` (non-bached, can't
-        // just add diffs to a `poll_next` result), we need a buffer to store the
-        // possible extra items in.
-        ready_values: VectorDiffContainerStreamSortBuf<S>,
     }
 }
 
@@ -118,18 +142,8 @@ where
         inner_stream: S,
         compare: F,
     ) -> (Vector<VectorDiffContainerStreamElement<S>>, Self) {
-        let mut initial_values = initial_values.into_iter().enumerate().collect::<Vector<_>>();
-        initial_values.sort_by(|(_, left), (_, right)| compare(left, right));
-
-        (
-            initial_values.iter().map(|(_, value)| value.clone()).collect(),
-            Self {
-                inner_stream,
-                compare,
-                buffered_vector: initial_values,
-                ready_values: Default::default(),
-            },
-        )
+        let (initial_sorted, inner) = SortImpl::new(initial_values, inner_stream, &compare);
+        (initial_sorted, Self { inner, compare })
     }
 }
 
@@ -142,6 +156,132 @@ where
     type Item = S::Item;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.project();
+        this.inner.poll_next(cx, &*this.compare)
+    }
+}
+
+pin_project! {
+    /// A [`VectorDiff`] stream adapter that presents a sorted view of the
+    /// underlying [`ObservableVector`] items.
+    ///
+    /// Sorting is done by transforming items to a key with a custom function
+    /// and comparing those. Otherwise this adapter works exactly like [`Sort`],
+    /// see that type's documentation for details on how this adapter operates.
+    ///
+    /// [`ObservableVector`]: eyeball_im::ObservableVector
+    pub struct SortByKey<S, F>
+    where
+        S: Stream,
+        S::Item: VectorDiffContainer,
+    {
+        #[pin]
+        inner: SortImpl<S>,
+
+        // The function to convert an item to a key used for comparison.
+        key_fn: F,
+    }
+}
+
+impl<S, F, K> SortByKey<S, F>
+where
+    S: Stream,
+    S::Item: VectorDiffContainer,
+    F: Fn(&VectorDiffContainerStreamElement<S>) -> K,
+    K: Ord,
+{
+    /// Create a new `SortByKey` with the given (unsorted) initial values,
+    /// stream of `VectorDiff` updates for those values, and the key function.
+    pub fn new(
+        initial_values: Vector<VectorDiffContainerStreamElement<S>>,
+        inner_stream: S,
+        key_fn: F,
+    ) -> (Vector<VectorDiffContainerStreamElement<S>>, Self) {
+        let (initial_sorted, inner) =
+            SortImpl::new(initial_values, inner_stream, |a, b| key_fn(a).cmp(&key_fn(b)));
+        (initial_sorted, Self { inner, key_fn })
+    }
+}
+
+impl<S, F, K> Stream for SortByKey<S, F>
+where
+    S: Stream,
+    S::Item: VectorDiffContainer,
+    F: Fn(&VectorDiffContainerStreamElement<S>) -> K,
+    K: Ord,
+{
+    type Item = S::Item;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.project();
+        let key_fn = &*this.key_fn;
+        this.inner.poll_next(cx, |a, b| key_fn(a).cmp(&key_fn(b)))
+    }
+}
+
+pin_project! {
+    pub struct SortImpl<S>
+    where
+        S: Stream,
+        S::Item: VectorDiffContainer,
+    {
+        // The main stream to poll items from.
+        #[pin]
+        inner_stream: S,
+
+        // This is the **sorted** buffered vector.
+        buffered_vector: Vector<(UnsortedIndex, VectorDiffContainerStreamElement<S>)>,
+
+        // This adapter can produce many items per item of the underlying stream.
+        //
+        // Thus, if the item type is just `VectorDiff<_>` (non-bached, can't
+        // just add diffs to a `poll_next` result), we need a buffer to store the
+        // possible extra items in.
+        ready_values: VectorDiffContainerStreamSortBuf<S>,
+    }
+}
+
+impl<S> SortImpl<S>
+where
+    S: Stream,
+    S::Item: VectorDiffContainer,
+{
+    fn new<F>(
+        initial_values: Vector<VectorDiffContainerStreamElement<S>>,
+        inner_stream: S,
+        compare: F,
+    ) -> (Vector<VectorDiffContainerStreamElement<S>>, Self)
+    where
+        F: Fn(
+            &VectorDiffContainerStreamElement<S>,
+            &VectorDiffContainerStreamElement<S>,
+        ) -> Ordering,
+    {
+        let mut initial_values = initial_values.into_iter().enumerate().collect::<Vector<_>>();
+        initial_values.sort_by(|(_, left), (_, right)| compare(left, right));
+
+        (
+            initial_values.iter().map(|(_, value)| value.clone()).collect(),
+            Self {
+                inner_stream,
+                buffered_vector: initial_values,
+                ready_values: Default::default(),
+            },
+        )
+    }
+
+    fn poll_next<F>(
+        self: Pin<&mut Self>,
+        cx: &mut task::Context<'_>,
+        compare: F,
+    ) -> Poll<Option<S::Item>>
+    where
+        F: Fn(
+                &VectorDiffContainerStreamElement<S>,
+                &VectorDiffContainerStreamElement<S>,
+            ) -> Ordering
+            + Copy,
+    {
         let mut this = self.project();
 
         loop {
@@ -157,7 +297,7 @@ where
 
             // Consume and apply the diffs if possible.
             let ready = diffs.push_into_sort_buf(this.ready_values, |diff| {
-                handle_diff_and_update_buffered_vector(diff, this.compare, this.buffered_vector)
+                handle_diff_and_update_buffered_vector(diff, compare, this.buffered_vector)
             });
 
             if let Some(diff) = ready {
@@ -178,7 +318,7 @@ where
 /// `Iterator::position` is used.
 fn handle_diff_and_update_buffered_vector<T, F>(
     diff: VectorDiff<T>,
-    compare: &F,
+    compare: F,
     buffered_vector: &mut Vector<(usize, T)>,
 ) -> SmallVec<[VectorDiff<T>; 2]>
 where
