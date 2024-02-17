@@ -12,7 +12,7 @@ use super::{
     ops::{
         VecVectorDiffFamily, VectorDiffContainerFamily, VectorDiffContainerOps, VectorDiffFamily,
     },
-    EmptyLimitStream, Filter, FilterMap, Limit, SortBy,
+    EmptyLimitStream, Filter, FilterMap, Limit, Sort, SortBy, SortByKey,
 };
 
 /// Abstraction over stream items that the adapters in this module can deal
@@ -160,7 +160,18 @@ where
         Limit::dynamic_with_initial_limit(items, stream, initial_limit, limit_stream)
     }
 
-    /// Sort the observed values with `compare`.
+    /// Sort the observed values.
+    ///
+    /// See [`Sort`] for more details.
+    fn sort(self) -> (Vector<T>, Sort<Self::Stream>)
+    where
+        T: Ord,
+    {
+        let (items, stream) = self.into_parts();
+        Sort::new(items, stream)
+    }
+
+    /// Sort the observed values with the given comparison function.
     ///
     /// See [`SortBy`] for more details.
     fn sort_by<F>(self, compare: F) -> (Vector<T>, SortBy<Self::Stream, F>)
@@ -169,6 +180,18 @@ where
     {
         let (items, stream) = self.into_parts();
         SortBy::new(items, stream, compare)
+    }
+
+    /// Sort the observed values with the given key function.
+    ///
+    /// See [`SortBy`] for more details.
+    fn sort_by_key<F, K>(self, key_fn: F) -> (Vector<T>, SortByKey<Self::Stream, F>)
+    where
+        F: Fn(&T) -> K,
+        K: Ord,
+    {
+        let (items, stream) = self.into_parts();
+        SortByKey::new(items, stream, key_fn)
     }
 }
 
