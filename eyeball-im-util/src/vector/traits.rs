@@ -163,7 +163,7 @@ where
     /// Sort the observed values with `compare`.
     ///
     /// See [`SortBy`] for more details.
-    fn sort_by<F>(self, compare: &F) -> (Vector<T>, SortBy<'_, Self::Stream, F>)
+    fn sort_by<F>(self, compare: F) -> (Vector<T>, SortBy<Self::Stream, F>)
     where
         F: Fn(&T, &T) -> Ordering,
     {
