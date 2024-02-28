@@ -83,8 +83,10 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
         #[cfg(feature = "tracing")]
         tracing::debug!(target: "eyeball_im::vector::update", "clear");
 
-        self.values.clear();
-        self.broadcast_diff(VectorDiff::Clear);
+        if !self.values.is_empty() {
+            self.values.clear();
+            self.broadcast_diff(VectorDiff::Clear);
+        }
     }
 
     /// Add an element at the front of the list and notify subscribers.
