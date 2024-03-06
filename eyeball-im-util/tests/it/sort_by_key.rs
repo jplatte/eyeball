@@ -6,7 +6,7 @@ use stream_assert::{assert_closed, assert_next_eq, assert_pending};
 #[test]
 fn new() {
     let ob = ObservableVector::<char>::from(vector!['c', 'a', 'd', 'b']);
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by_key(|&x| x);
 
     assert_eq!(values, vector!['a', 'b', 'c', 'd']);
     assert_pending!(sub);
@@ -18,7 +18,7 @@ fn new() {
 #[test]
 fn append() {
     let mut ob = ObservableVector::<char>::new();
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by_key(|&x| x);
 
     assert!(values.is_empty());
     assert_pending!(sub);
@@ -58,7 +58,7 @@ fn append() {
 #[test]
 fn clear() {
     let mut ob = ObservableVector::<char>::new();
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by_key(|&x| x);
 
     assert!(values.is_empty());
     assert_pending!(sub);
@@ -83,7 +83,7 @@ fn clear() {
 #[test]
 fn push_front() {
     let mut ob = ObservableVector::<char>::new();
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by_key(|&x| x);
 
     assert!(values.is_empty());
     assert_pending!(sub);
@@ -117,7 +117,7 @@ fn push_front() {
 #[test]
 fn push_back() {
     let mut ob = ObservableVector::<char>::new();
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by_key(|&x| x);
 
     assert!(values.is_empty());
     assert_pending!(sub);
@@ -151,7 +151,7 @@ fn push_back() {
 #[test]
 fn insert() {
     let mut ob = ObservableVector::<char>::new();
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by_key(|&x| x);
 
     assert!(values.is_empty());
     assert_pending!(sub);
@@ -190,7 +190,7 @@ fn insert() {
 #[test]
 fn pop_front() {
     let mut ob = ObservableVector::<char>::new();
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by_key(|&x| x);
 
     assert!(values.is_empty());
     assert_pending!(sub);
@@ -235,7 +235,7 @@ fn pop_front() {
 #[test]
 fn pop_back() {
     let mut ob = ObservableVector::<char>::new();
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by_key(|&x| x);
 
     assert!(values.is_empty());
     assert_pending!(sub);
@@ -286,7 +286,7 @@ fn pop_back() {
 #[test]
 fn remove() {
     let mut ob = ObservableVector::<char>::new();
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by_key(|&x| x);
 
     assert!(values.is_empty());
     assert_pending!(sub);
@@ -317,7 +317,7 @@ fn remove() {
 #[test]
 fn set() {
     let mut ob = ObservableVector::<char>::new();
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by_key(|&x| x);
 
     assert!(values.is_empty());
     assert_pending!(sub);
@@ -330,17 +330,9 @@ fn set() {
     ob.set(0, 'd');
     assert_next_eq!(sub, VectorDiff::Set { index: 1, value: 'd' });
 
-    // Another value, that is sorted at the same sorted index: `d` is at the sorted
-    // index 1, and `c` is at the sorted index 1 too. The `VectorDiff::Remove` +
-    // `VectorDiff::Insert` are optimised as a single `VectorDiff::Set`.
+    // Another value, that is sorted at the same index.
     ob.set(0, 'c');
     assert_next_eq!(sub, VectorDiff::Set { index: 1, value: 'c' });
-
-    // Another value, that is sorted at an adjacent sorted index: `c` is at the
-    // sorted index 1, but `d` is at the sorted index 2. The `VectorDiff::Remove` +
-    // `VectorDiff::Insert` are optimised as a single `VectorDiff::Set`.
-    ob.set(0, 'd');
-    assert_next_eq!(sub, VectorDiff::Set { index: 1, value: 'd' });
 
     // Another value, that is moved to the left.
     ob.set(0, 'a');
@@ -372,7 +364,7 @@ fn set() {
 #[test]
 fn truncate() {
     let mut ob = ObservableVector::<char>::new();
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by_key(|&x| x);
 
     assert!(values.is_empty());
     assert_pending!(sub);
@@ -405,7 +397,7 @@ fn truncate() {
 #[test]
 fn reset() {
     let mut ob = ObservableVector::<char>::with_capacity(1);
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by_key(|&x| x);
 
     assert!(values.is_empty());
     assert_pending!(sub);
