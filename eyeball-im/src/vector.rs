@@ -80,10 +80,16 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
 
     /// Clear out all of the elements in this `Vector` and notify subscribers.
     pub fn clear(&mut self) {
-        #[cfg(feature = "tracing")]
-        tracing::debug!(target: "eyeball_im::vector::update", "clear");
+        let already_empty = self.values.is_empty();
 
-        if !self.values.is_empty() {
+        #[cfg(feature = "tracing")]
+        tracing::debug!(
+            target: "eyeball_im::vector::update",
+            nop = already_empty.then_some(true),
+            "clear"
+        );
+
+        if !already_empty {
             self.values.clear();
             self.broadcast_diff(VectorDiff::Clear);
         }
