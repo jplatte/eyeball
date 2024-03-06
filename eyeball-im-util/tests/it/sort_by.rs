@@ -1,14 +1,25 @@
 use eyeball_im::{ObservableVector, VectorDiff};
 use eyeball_im_util::vector::VectorObserverExt;
 use imbl::vector;
+use std::cmp::Ordering;
 use stream_assert::{assert_closed, assert_next_eq, assert_pending};
+
+/// Reversed sorting function.
+///
+/// `sort_by(rev_cmp)` is equivalent to `sort_by_key(std::cmp::Reverse)`
+fn rev_cmp<T>(left: &T, right: &T) -> Ordering
+where
+    T: Ord,
+{
+    right.cmp(left)
+}
 
 #[test]
 fn new() {
     let ob = ObservableVector::<char>::from(vector!['c', 'a', 'd', 'b']);
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by(&rev_cmp);
 
-    assert_eq!(values, vector!['a', 'b', 'c', 'd']);
+    assert_eq!(values, vector!['d', 'c', 'b', 'a']);
     assert_pending!(sub);
 
     drop(ob);
@@ -18,38 +29,30 @@ fn new() {
 #[test]
 fn append() {
     let mut ob = ObservableVector::<char>::new();
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by(&rev_cmp);
 
     assert!(values.is_empty());
     assert_pending!(sub);
 
     // Append on an empty vector.
-    ob.append(vector!['d', 'a', 'e']);
-    assert_next_eq!(sub, VectorDiff::Append { values: vector!['a', 'd', 'e'] });
+    ob.append(vector!['d', 'e', 'e']);
+    assert_next_eq!(sub, VectorDiff::Append { values: vector!['e', 'e', 'd'] });
 
     // Append on an non-empty vector.
-    ob.append(vector!['f', 'g', 'b']);
-    assert_next_eq!(sub, VectorDiff::Insert { index: 1, value: 'b' });
-    assert_next_eq!(sub, VectorDiff::Append { values: vector!['f', 'g'] });
+    ob.append(vector!['f', 'g', 'c']);
+    assert_next_eq!(sub, VectorDiff::PushFront { value: 'g' });
+    assert_next_eq!(sub, VectorDiff::Insert { index: 1, value: 'f' });
+    assert_next_eq!(sub, VectorDiff::Append { values: vector!['c'] });
 
     // Another append.
-    // This time, it contains a duplicated new item + an insert + new items to be
-    // appended.
-    ob.append(vector!['i', 'h', 'c', 'j', 'a']);
-    assert_next_eq!(sub, VectorDiff::PushFront { value: 'a' });
-    assert_next_eq!(sub, VectorDiff::Insert { index: 3, value: 'c' });
-    assert_next_eq!(sub, VectorDiff::Append { values: vector!['h', 'i', 'j'] });
-
-    // Another append.
-    // This time, with two new items that are a duplication of the last item.
-    ob.append(vector!['k', 'l', 'j', 'm', 'j']);
-    assert_next_eq!(sub, VectorDiff::Append { values: vector!['j', 'j', 'k', 'l', 'm'] });
+    ob.append(vector!['i', 'h', 'j', 'a', 'b']);
+    assert_next_eq!(sub, VectorDiff::PushFront { value: 'j' });
+    assert_next_eq!(sub, VectorDiff::Insert { index: 1, value: 'i' });
+    assert_next_eq!(sub, VectorDiff::Insert { index: 2, value: 'h' });
+    assert_next_eq!(sub, VectorDiff::Append { values: vector!['b', 'a'] });
 
     // Items in the vector have been appended and are not sorted.
-    assert_eq!(
-        *ob,
-        vector!['d', 'a', 'e', 'f', 'g', 'b', 'i', 'h', 'c', 'j', 'a', 'k', 'l', 'j', 'm', 'j']
-    );
+    assert_eq!(*ob, vector!['d', 'e', 'e', 'f', 'g', 'c', 'i', 'h', 'j', 'a', 'b']);
 
     drop(ob);
     assert_closed!(sub);
@@ -58,13 +61,13 @@ fn append() {
 #[test]
 fn clear() {
     let mut ob = ObservableVector::<char>::new();
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by(&rev_cmp);
 
     assert!(values.is_empty());
     assert_pending!(sub);
 
     ob.append(vector!['b', 'a', 'c']);
-    assert_next_eq!(sub, VectorDiff::Append { values: vector!['a', 'b', 'c'] });
+    assert_next_eq!(sub, VectorDiff::Append { values: vector!['c', 'b', 'a'] });
 
     assert_eq!(*ob, vector!['b', 'a', 'c']);
 
@@ -83,7 +86,7 @@ fn clear() {
 #[test]
 fn push_front() {
     let mut ob = ObservableVector::<char>::new();
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by(&rev_cmp);
 
     assert!(values.is_empty());
     assert_pending!(sub);
@@ -93,19 +96,19 @@ fn push_front() {
     assert_next_eq!(sub, VectorDiff::PushFront { value: 'b' });
 
     // Push front on non-empty vector.
-    // The new item should appear at position 0.
+    // The new item should appear at the end.
     ob.push_front('a');
-    assert_next_eq!(sub, VectorDiff::PushFront { value: 'a' });
+    assert_next_eq!(sub, VectorDiff::PushBack { value: 'a' });
 
     // Another push front.
-    // The new item should appear at last position.
+    // The new item should appear at the beginning.
     ob.push_front('d');
-    assert_next_eq!(sub, VectorDiff::PushBack { value: 'd' });
+    assert_next_eq!(sub, VectorDiff::PushFront { value: 'd' });
 
     // Another push front.
     // The new item should appear in the middle.
     ob.push_front('c');
-    assert_next_eq!(sub, VectorDiff::Insert { index: 2, value: 'c' });
+    assert_next_eq!(sub, VectorDiff::Insert { index: 1, value: 'c' });
 
     // Items in the vector have been pushed front and are not sorted.
     assert_eq!(*ob, vector!['c', 'd', 'a', 'b']);
@@ -117,7 +120,7 @@ fn push_front() {
 #[test]
 fn push_back() {
     let mut ob = ObservableVector::<char>::new();
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by(&rev_cmp);
 
     assert!(values.is_empty());
     assert_pending!(sub);
@@ -127,19 +130,19 @@ fn push_back() {
     assert_next_eq!(sub, VectorDiff::PushFront { value: 'b' });
 
     // Push back on non-empty vector.
-    // The new item should appear at position 0.
+    // The new item should appear at the end.
     ob.push_back('a');
-    assert_next_eq!(sub, VectorDiff::PushFront { value: 'a' });
+    assert_next_eq!(sub, VectorDiff::PushBack { value: 'a' });
 
     // Another push back.
-    // The new item should appear at last position.
+    // The new item should appear at the beginning.
     ob.push_back('d');
-    assert_next_eq!(sub, VectorDiff::PushBack { value: 'd' });
+    assert_next_eq!(sub, VectorDiff::PushFront { value: 'd' });
 
     // Another push back.
     // The new item should appear in the middle.
     ob.push_back('c');
-    assert_next_eq!(sub, VectorDiff::Insert { index: 2, value: 'c' });
+    assert_next_eq!(sub, VectorDiff::Insert { index: 1, value: 'c' });
 
     // Items in the vector have been pushed back and are not sorted.
     assert_eq!(*ob, vector!['b', 'a', 'd', 'c']);
@@ -151,7 +154,7 @@ fn push_back() {
 #[test]
 fn insert() {
     let mut ob = ObservableVector::<char>::new();
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by(&rev_cmp);
 
     assert!(values.is_empty());
     assert_pending!(sub);
@@ -161,19 +164,19 @@ fn insert() {
     assert_next_eq!(sub, VectorDiff::PushFront { value: 'b' });
 
     // Insert on non-empty vector.
-    // The new item should appear at position 0.
+    // The new item should appear at the end.
     ob.insert(1, 'a');
-    assert_next_eq!(sub, VectorDiff::PushFront { value: 'a' });
+    assert_next_eq!(sub, VectorDiff::PushBack { value: 'a' });
 
     // Another insert.
-    // The new item should appear at last position.
+    // The new item should appear at the beginning.
     ob.insert(1, 'd');
-    assert_next_eq!(sub, VectorDiff::PushBack { value: 'd' });
+    assert_next_eq!(sub, VectorDiff::PushFront { value: 'd' });
 
     // Another insert.
-    // The new item should appear at last position.
+    // The new item should appear at the beginning.
     ob.insert(1, 'e');
-    assert_next_eq!(sub, VectorDiff::PushBack { value: 'e' });
+    assert_next_eq!(sub, VectorDiff::PushFront { value: 'e' });
 
     // Another insert.
     // The new item should appear in the middle.
@@ -190,39 +193,32 @@ fn insert() {
 #[test]
 fn pop_front() {
     let mut ob = ObservableVector::<char>::new();
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by(&rev_cmp);
 
     assert!(values.is_empty());
     assert_pending!(sub);
 
     // Append a bunch of items.
     ob.append(vector!['e', 'b', 'a', 'd', 'c']);
-    assert_next_eq!(sub, VectorDiff::Append { values: vector!['a', 'b', 'c', 'd', 'e'] });
+    assert_next_eq!(sub, VectorDiff::Append { values: vector!['e', 'd', 'c', 'b', 'a'] });
 
     // Pop front once.
-    // `e` is at the last sorted position, so it generates a `VectorDiff::PopBack`.
     assert_eq!(ob.pop_front(), Some('e'));
-    assert_next_eq!(sub, VectorDiff::PopBack);
-
-    // Pop front again.
-    // `b` is at the second sorted position, so it generates a `VectorDiff::Remove`.
-    assert_eq!(ob.pop_front(), Some('b'));
-    assert_next_eq!(sub, VectorDiff::Remove { index: 1 });
-
-    // Pop front again.
-    // `a` is at the first sorted position, so it generates a
-    // `VectorDiff::PopFront`.
-    assert_eq!(ob.pop_front(), Some('a'));
     assert_next_eq!(sub, VectorDiff::PopFront);
 
     // Pop front again.
-    // `d` is at the last sorted position, so it generates a `VectorDiff::PopBack`.
-    assert_eq!(ob.pop_front(), Some('d'));
+    assert_eq!(ob.pop_front(), Some('b'));
+    assert_next_eq!(sub, VectorDiff::Remove { index: 2 });
+
+    // Pop front again.
+    assert_eq!(ob.pop_front(), Some('a'));
     assert_next_eq!(sub, VectorDiff::PopBack);
 
     // Pop front again.
-    // `c` is at the first sorted position, so it generates a
-    // `VectorDiff::PopFront`.
+    assert_eq!(ob.pop_front(), Some('d'));
+    assert_next_eq!(sub, VectorDiff::PopFront);
+
+    // Pop front again.
     assert_eq!(ob.pop_front(), Some('c'));
     assert_next_eq!(sub, VectorDiff::PopFront);
 
@@ -235,45 +231,38 @@ fn pop_front() {
 #[test]
 fn pop_back() {
     let mut ob = ObservableVector::<char>::new();
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by(&rev_cmp);
 
     assert!(values.is_empty());
     assert_pending!(sub);
 
     // Append a bunch of items.
     ob.append(vector!['e', 'b', 'a', 'd', 'c', 'f']);
-    assert_next_eq!(sub, VectorDiff::Append { values: vector!['a', 'b', 'c', 'd', 'e', 'f'] });
+    assert_next_eq!(sub, VectorDiff::Append { values: vector!['f', 'e', 'd', 'c', 'b', 'a'] });
 
     // Pop back once.
-    // `f` is at the last sorted position, so it generates a `VectorDiff::PopBack`.
+    // `f` is at the first sorted position, so it generates a
+    // `VectorDiff::PopFront`.
     assert_eq!(ob.pop_back(), Some('f'));
-    assert_next_eq!(sub, VectorDiff::PopBack);
+    assert_next_eq!(sub, VectorDiff::PopFront);
 
     // Pop back again.
-    // `c` is at the third sorted position, so it generates a `VectorDiff::Remove`.
     assert_eq!(ob.pop_back(), Some('c'));
     assert_next_eq!(sub, VectorDiff::Remove { index: 2 });
 
     // Pop back again.
-    // `d` is at the third sorted position, so it generates a `VectorDiff::Remove`.
     assert_eq!(ob.pop_back(), Some('d'));
-    assert_next_eq!(sub, VectorDiff::Remove { index: 2 });
+    assert_next_eq!(sub, VectorDiff::Remove { index: 1 });
 
     // Pop back again.
-    // `a` is at the first sorted position, so it generates a
-    // `VectorDiff::PopFront`.
     assert_eq!(ob.pop_back(), Some('a'));
-    assert_next_eq!(sub, VectorDiff::PopFront);
+    assert_next_eq!(sub, VectorDiff::PopBack);
 
     // Pop back again.
-    // `b` is at the first sorted position, so it generates a
-    // `VectorDiff::PopFront`.
     assert_eq!(ob.pop_back(), Some('b'));
-    assert_next_eq!(sub, VectorDiff::PopFront);
+    assert_next_eq!(sub, VectorDiff::PopBack);
 
     // Pop back again.
-    // `e` is at the first sorted position, so it generates a
-    // `VectorDiff::PopFront`.
     assert_eq!(ob.pop_back(), Some('e'));
     assert_next_eq!(sub, VectorDiff::PopFront);
 
@@ -286,22 +275,22 @@ fn pop_back() {
 #[test]
 fn remove() {
     let mut ob = ObservableVector::<char>::new();
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by(&rev_cmp);
 
     assert!(values.is_empty());
     assert_pending!(sub);
 
     // Append a bunch of items.
     ob.append(vector!['e', 'b', 'a', 'd', 'c']);
-    assert_next_eq!(sub, VectorDiff::Append { values: vector!['a', 'b', 'c', 'd', 'e'] });
+    assert_next_eq!(sub, VectorDiff::Append { values: vector!['e', 'd', 'c', 'b', 'a'] });
 
     // Remove `a`.
     ob.remove(2);
-    assert_next_eq!(sub, VectorDiff::PopFront);
+    assert_next_eq!(sub, VectorDiff::PopBack);
 
     // Remove `e`.
     ob.remove(0);
-    assert_next_eq!(sub, VectorDiff::PopBack);
+    assert_next_eq!(sub, VectorDiff::PopFront);
 
     // Remove `c`.
     ob.remove(2);
@@ -317,53 +306,36 @@ fn remove() {
 #[test]
 fn set() {
     let mut ob = ObservableVector::<char>::new();
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by(&rev_cmp);
 
     assert!(values.is_empty());
     assert_pending!(sub);
 
     // Append a bunch of items.
     ob.append(vector!['d', 'e', 'b', 'g']);
-    assert_next_eq!(sub, VectorDiff::Append { values: vector!['b', 'd', 'e', 'g'] });
+    assert_next_eq!(sub, VectorDiff::Append { values: vector!['g', 'e', 'd', 'b'] });
 
     // Same value.
     ob.set(0, 'd');
-    assert_next_eq!(sub, VectorDiff::Set { index: 1, value: 'd' });
+    assert_next_eq!(sub, VectorDiff::Set { index: 2, value: 'd' });
 
-    // Another value, that is sorted at the same sorted index: `d` is at the sorted
-    // index 1, and `c` is at the sorted index 1 too. The `VectorDiff::Remove` +
-    // `VectorDiff::Insert` are optimised as a single `VectorDiff::Set`.
+    // Different value but position stays the same.
     ob.set(0, 'c');
-    assert_next_eq!(sub, VectorDiff::Set { index: 1, value: 'c' });
+    assert_next_eq!(sub, VectorDiff::Set { index: 2, value: 'c' });
 
-    // Another value, that is sorted at an adjacent sorted index: `c` is at the
-    // sorted index 1, but `d` is at the sorted index 2. The `VectorDiff::Remove` +
-    // `VectorDiff::Insert` are optimised as a single `VectorDiff::Set`.
-    ob.set(0, 'd');
-    assert_next_eq!(sub, VectorDiff::Set { index: 1, value: 'd' });
-
-    // Another value, that is moved to the left.
-    ob.set(0, 'a');
-    assert_next_eq!(sub, VectorDiff::Remove { index: 1 });
-    assert_next_eq!(sub, VectorDiff::Insert { index: 0, value: 'a' });
-
+    // This time sorting moves the value.
     // Another value, that is moved to the right.
     ob.set(0, 'f');
-    assert_next_eq!(sub, VectorDiff::Remove { index: 0 });
-    assert_next_eq!(sub, VectorDiff::Insert { index: 2, value: 'f' });
-
-    // Another value, that is moved to the right-most position.
-    ob.set(0, 'h');
     assert_next_eq!(sub, VectorDiff::Remove { index: 2 });
-    assert_next_eq!(sub, VectorDiff::Insert { index: 3, value: 'h' });
+    assert_next_eq!(sub, VectorDiff::Insert { index: 1, value: 'f' });
 
     // Same operation, at another index, just for fun.
     ob.set(2, 'f');
-    assert_next_eq!(sub, VectorDiff::Remove { index: 0 });
+    assert_next_eq!(sub, VectorDiff::Remove { index: 3 });
     assert_next_eq!(sub, VectorDiff::Insert { index: 1, value: 'f' });
 
     // Items in the vector have been updated and are not sorted.
-    assert_eq!(*ob, vector!['h', 'e', 'f', 'g']);
+    assert_eq!(*ob, vector!['f', 'e', 'f', 'g']);
 
     drop(ob);
     assert_closed!(sub);
@@ -372,19 +344,20 @@ fn set() {
 #[test]
 fn truncate() {
     let mut ob = ObservableVector::<char>::new();
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by(&rev_cmp);
 
     assert!(values.is_empty());
     assert_pending!(sub);
 
     // Append a bunch of items.
     ob.append(vector!['c', 'd', 'a']);
-    assert_next_eq!(sub, VectorDiff::Append { values: vector!['a', 'c', 'd'] });
+    assert_next_eq!(sub, VectorDiff::Append { values: vector!['d', 'c', 'a'] });
 
     // Append other items.
     ob.append(vector!['b', 'e', 'f']);
-    assert_next_eq!(sub, VectorDiff::Insert { index: 1, value: 'b' });
-    assert_next_eq!(sub, VectorDiff::Append { values: vector!['e', 'f'] });
+    assert_next_eq!(sub, VectorDiff::PushFront { value: 'f' });
+    assert_next_eq!(sub, VectorDiff::Insert { index: 1, value: 'e' });
+    assert_next_eq!(sub, VectorDiff::Insert { index: 4, value: 'b' });
 
     // Truncate.
     ob.truncate(2);
@@ -395,8 +368,9 @@ fn truncate() {
 
     // Append other items.
     ob.append(vector!['b', 'x', 'y']);
-    assert_next_eq!(sub, VectorDiff::PushFront { value: 'b' });
-    assert_next_eq!(sub, VectorDiff::Append { values: vector!['x', 'y'] });
+    assert_next_eq!(sub, VectorDiff::PushFront { value: 'y' });
+    assert_next_eq!(sub, VectorDiff::Insert { index: 1, value: 'x' });
+    assert_next_eq!(sub, VectorDiff::Append { values: vector!['b'] });
 
     drop(ob);
     assert_closed!(sub);
@@ -405,20 +379,20 @@ fn truncate() {
 #[test]
 fn reset() {
     let mut ob = ObservableVector::<char>::with_capacity(1);
-    let (values, mut sub) = ob.subscribe().sort();
+    let (values, mut sub) = ob.subscribe().sort_by(&rev_cmp);
 
     assert!(values.is_empty());
     assert_pending!(sub);
 
     // Append a bunch of items.
     ob.append(vector!['c', 'd', 'a']);
-    assert_next_eq!(sub, VectorDiff::Append { values: vector!['a', 'c', 'd'] });
+    assert_next_eq!(sub, VectorDiff::Append { values: vector!['d', 'c', 'a'] });
 
     // Push back a bunch of items 3 times, so that it overflows the capacity, and we
     // get a reset!
     ob.push_back('b');
     ob.push_back('f');
-    assert_next_eq!(sub, VectorDiff::Reset { values: vector!['a', 'b', 'c', 'd', 'f'] });
+    assert_next_eq!(sub, VectorDiff::Reset { values: vector!['f', 'd', 'c', 'b', 'a'] });
 
     // Items in the vector have been inserted and are not sorted.
     assert_eq!(*ob, vector!['c', 'd', 'a', 'b', 'f']);
