@@ -6,6 +6,8 @@ use eyeball_im::{ObservableVector, ObservableVectorEntry, VectorDiff};
 mod apply;
 mod batch;
 mod entry;
+#[cfg(feature = "serde")]
+mod serde;
 
 #[test]
 fn lag() {

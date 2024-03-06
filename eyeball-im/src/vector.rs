@@ -469,6 +469,76 @@ impl<T: Clone> VectorDiff<T> {
     }
 }
 
+#[cfg(feature = "serde")]
+impl<T> serde::Serialize for VectorDiff<T>
+where
+    T: serde::Serialize + Clone,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStructVariant;
+
+        const SELF_NAME: &str = "VectorDiff";
+
+        match self {
+            Self::Append { values } => {
+                let mut state = serializer.serialize_struct_variant(SELF_NAME, 0, "Append", 1)?;
+                state.serialize_field("values", values)?;
+                state.end()
+            }
+            VectorDiff::Clear => {
+                serializer.serialize_struct_variant(SELF_NAME, 1, "Clear", 0)?.end()
+            }
+            VectorDiff::PushFront { value } => {
+                let mut state =
+                    serializer.serialize_struct_variant(SELF_NAME, 2, "PushFront", 1)?;
+                state.serialize_field("value", value)?;
+                state.end()
+            }
+            VectorDiff::PushBack { value } => {
+                let mut state = serializer.serialize_struct_variant(SELF_NAME, 3, "PushBack", 1)?;
+                state.serialize_field("value", value)?;
+                state.end()
+            }
+            VectorDiff::PopFront => {
+                serializer.serialize_struct_variant(SELF_NAME, 4, "PopFront", 0)?.end()
+            }
+            VectorDiff::PopBack => {
+                serializer.serialize_struct_variant(SELF_NAME, 5, "PopBack", 0)?.end()
+            }
+            VectorDiff::Insert { index, value } => {
+                let mut state = serializer.serialize_struct_variant(SELF_NAME, 6, "Insert", 2)?;
+                state.serialize_field("index", index)?;
+                state.serialize_field("value", value)?;
+                state.end()
+            }
+            VectorDiff::Set { index, value } => {
+                let mut state = serializer.serialize_struct_variant(SELF_NAME, 7, "Set", 2)?;
+                state.serialize_field("index", index)?;
+                state.serialize_field("value", value)?;
+                state.end()
+            }
+            VectorDiff::Remove { index } => {
+                let mut state = serializer.serialize_struct_variant(SELF_NAME, 8, "Remove", 1)?;
+                state.serialize_field("index", index)?;
+                state.end()
+            }
+            VectorDiff::Truncate { length } => {
+                let mut state = serializer.serialize_struct_variant(SELF_NAME, 9, "Truncate", 1)?;
+                state.serialize_field("length", length)?;
+                state.end()
+            }
+            VectorDiff::Reset { values } => {
+                let mut state = serializer.serialize_struct_variant(SELF_NAME, 10, "Reset", 1)?;
+                state.serialize_field("values", values)?;
+                state.end()
+            }
+        }
+    }
+}
+
 fn vector_map<T: Clone, U: Clone>(v: Vector<T>, f: impl FnMut(T) -> U) -> Vector<U> {
     v.into_iter().map(f).collect()
 }
