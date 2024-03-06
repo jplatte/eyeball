@@ -1,5 +1,5 @@
 use imbl::{vector, Vector};
-use stream_assert::{assert_next_eq, assert_pending};
+use stream_assert::{assert_closed, assert_next_eq, assert_pending};
 
 use eyeball_im::{ObservableVector, ObservableVectorEntry, VectorDiff};
 
@@ -56,6 +56,25 @@ fn truncate() {
     ob.truncate(0);
     assert_next_eq!(sub, VectorDiff::Truncate { length: 0 });
     assert!(ob.is_empty());
+}
+
+#[test]
+fn clear() {
+    let mut ob: ObservableVector<i32> = ObservableVector::from(vector![1, 2]);
+    let mut sub = ob.subscribe().into_stream();
+    assert_pending!(sub);
+
+    ob.clear();
+    assert_next_eq!(sub, VectorDiff::Clear);
+    assert!(ob.is_empty());
+
+    // Clearing again. The vector is empty now. We don't expect a
+    // `VectorDiff::Clear`.
+    ob.clear();
+    assert_pending!(sub);
+
+    drop(ob);
+    assert_closed!(sub);
 }
 
 #[test]
