@@ -2,8 +2,8 @@ use std::{
     hash::{Hash, Hasher},
     mem,
     sync::{
-        atomic::{AtomicU64, Ordering},
-        RwLock,
+        atomic::{AtomicU64, AtomicUsize, Ordering},
+        RwLock, Weak,
     },
     task::Waker,
 };
@@ -27,12 +27,29 @@ pub struct ObservableState<T> {
     /// locked for reading. This way, it is guaranteed that between a subscriber
     /// reading the value and adding a waker because the value hasn't changed
     /// yet, no updates to the value could have happened.
-    wakers: RwLock<Vec<Waker>>,
+    ///
+    /// It contains weak references to wakers, so it does not keep references to
+    /// [`Subscriber`](crate::Subscriber) or [`Next`](crate::subscriber::Next)
+    /// that would otherwise be dropped and won't be awaited again (eg. as part
+    /// of a future being cancelled).
+    wakers: RwLock<Vec<Weak<Waker>>>,
+
+    /// Whenever wakers.len() reaches this size, iterate through it and remove
+    /// dangling weak references.
+    /// This is updated in order to only cleanup every time the list of wakers
+    /// doubled in size since the previous cleanup, allowing a O(1) amortized
+    /// time complexity.
+    next_wakers_cleanup_at_len: AtomicUsize,
 }
 
 impl<T> ObservableState<T> {
     pub(crate) fn new(value: T) -> Self {
-        Self { value, version: AtomicU64::new(1), wakers: Default::default() }
+        Self {
+            value,
+            version: AtomicU64::new(1),
+            wakers: Default::default(),
+            next_wakers_cleanup_at_len: AtomicUsize::new(64), // Arbitrary constant
+        }
     }
 
     /// Get a reference to the inner value.
@@ -45,8 +62,34 @@ impl<T> ObservableState<T> {
         self.version.load(Ordering::Acquire)
     }
 
-    pub(crate) fn add_waker(&self, waker: Waker) {
-        self.wakers.write().unwrap().push(waker);
+    pub(crate) fn add_waker(&self, waker: Weak<Waker>) {
+        // TODO: clean up dangling Weak references in the vector if there are too many
+        let mut wakers = self.wakers.write().unwrap();
+        wakers.push(waker);
+        if wakers.len() >= self.next_wakers_cleanup_at_len.load(Ordering::Relaxed) {
+            // Remove dangling Weak references from the vector to free any
+            // cancelled future that awaited on a `Subscriber` of this
+            // observable.
+            let mut new_wakers = Vec::with_capacity(wakers.len());
+            for waker in wakers.iter() {
+                if waker.strong_count() > 0 {
+                    new_wakers.push(waker.clone());
+                }
+            }
+            if new_wakers.len() == wakers.len() {
+                #[cfg(feature = "tracing")]
+                tracing::debug!("No dangling wakers among set of {}", wakers.len());
+            } else {
+                #[cfg(feature = "tracing")]
+                tracing::debug!(
+                    "Removed {} dangling wakers from a set of {}",
+                    wakers.len() - new_wakers.len(),
+                    wakers.len()
+                );
+                std::mem::swap(&mut *wakers, &mut new_wakers);
+            }
+            self.next_wakers_cleanup_at_len.store(wakers.len() * 2, Ordering::Relaxed);
+        }
     }
 
     pub(crate) fn set(&mut self, value: T) -> T {
@@ -111,7 +154,7 @@ fn hash<T: Hash>(value: &T) -> u64 {
 
 fn wake<I>(wakers: I)
 where
-    I: IntoIterator<Item = Waker>,
+    I: IntoIterator<Item = Weak<Waker>>,
     I::IntoIter: ExactSizeIterator,
 {
     let iter = wakers.into_iter();
@@ -124,7 +167,20 @@ where
             tracing::debug!("No wakers");
         }
     }
+    let mut num_alive_wakers = 0;
     for waker in iter {
-        waker.wake();
+        if let Some(waker) = waker.upgrade() {
+            num_alive_wakers += 1;
+            waker.wake_by_ref();
+        }
+    }
+
+    #[cfg(feature = "tracing")]
+    {
+        tracing::debug!("Woke up {num_alive_wakers} waiting subscribers");
+    }
+    #[cfg(not(feature = "tracing"))]
+    {
+        let _ = num_alive_wakers; // For Clippy
     }
 }

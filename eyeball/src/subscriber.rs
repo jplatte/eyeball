@@ -7,7 +7,8 @@ use std::{
     fmt,
     future::{poll_fn, Future},
     pin::Pin,
-    task::{Context, Poll},
+    sync::{Arc, Weak},
+    task::{Context, Poll, Waker},
 };
 
 use futures_core::Stream;
@@ -22,11 +23,14 @@ pub(crate) mod async_lock;
 pub struct Subscriber<T, L: Lock = SyncLock> {
     state: L::SubscriberState<T>,
     observed_version: u64,
+    /// Prevent wakers from being dropped from `ObservableState` until this
+    /// `Subscriber` is dropped
+    wakers: Vec<Arc<Waker>>,
 }
 
 impl<T> Subscriber<T> {
     pub(crate) fn new(state: readlock::SharedReadLock<ObservableState<T>>, version: u64) -> Self {
-        Self { state, observed_version: version }
+        Self { state, observed_version: version, wakers: Vec::new() }
     }
 
     /// Wait for an update and get a clone of the updated value.
@@ -87,7 +91,12 @@ impl<T> Subscriber<T> {
     #[must_use]
     pub async fn next_ref(&mut self) -> Option<ObservableReadGuard<'_, T>> {
         // Unclear how to implement this as a named future.
-        poll_fn(|cx| self.poll_next_ref(cx).map(|opt| opt.map(|_| {}))).await?;
+        let mut waker = None;
+        poll_fn(|cx| {
+            waker = Some(Arc::new(cx.waker().clone()));
+            self.poll_next_ref(Arc::downgrade(waker.as_ref().unwrap())).map(|opt| opt.map(|_| {}))
+        })
+        .await?;
         Some(self.next_ref_now())
     }
 
@@ -120,7 +129,7 @@ impl<T> Subscriber<T> {
         ObservableReadGuard::new(self.state.lock())
     }
 
-    fn poll_next_ref(&mut self, cx: &Context<'_>) -> Poll<Option<ObservableReadGuard<'_, T>>> {
+    fn poll_next_ref(&mut self, waker: Weak<Waker>) -> Poll<Option<ObservableReadGuard<'_, T>>> {
         let state = self.state.lock();
         let version = state.version();
         if version == 0 {
@@ -129,7 +138,7 @@ impl<T> Subscriber<T> {
             self.observed_version = version;
             Poll::Ready(Some(ObservableReadGuard::new(state)))
         } else {
-            state.add_waker(cx.waker().clone());
+            state.add_waker(waker);
             Poll::Pending
         }
     }
@@ -160,7 +169,7 @@ impl<T, L: Lock> Subscriber<T, L> {
     where
         L::SubscriberState<T>: Clone,
     {
-        Self { state: self.state.clone(), observed_version: 0 }
+        Self { state: self.state.clone(), observed_version: 0, wakers: Vec::new() }
     }
 }
 
@@ -178,7 +187,11 @@ where
     L::SubscriberState<T>: Clone,
 {
     fn clone(&self) -> Self {
-        Self { state: self.state.clone(), observed_version: self.observed_version }
+        Self {
+            state: self.state.clone(),
+            observed_version: self.observed_version,
+            wakers: Vec::new(),
+        }
     }
 }
 
@@ -198,7 +211,10 @@ impl<T: Clone> Stream for Subscriber<T> {
     type Item = T;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.poll_next_ref(cx).map(opt_guard_to_owned)
+        let waker = Arc::new(cx.waker().clone());
+        let poll = self.poll_next_ref(Arc::downgrade(&waker)).map(opt_guard_to_owned);
+        self.wakers.push(waker);
+        poll
     }
 }
 
@@ -207,11 +223,14 @@ impl<T: Clone> Stream for Subscriber<T> {
 #[allow(missing_debug_implementations)]
 pub struct Next<'a, T, L: Lock = SyncLock> {
     subscriber: &'a mut Subscriber<T, L>,
+    /// Prevent wakers from being dropped from `ObservableState` until this
+    /// `Next` is dropped
+    wakers: Vec<Arc<Waker>>,
 }
 
 impl<'a, T> Next<'a, T> {
     fn new(subscriber: &'a mut Subscriber<T>) -> Self {
-        Self { subscriber }
+        Self { subscriber, wakers: Vec::new() }
     }
 }
 
@@ -219,7 +238,10 @@ impl<T: Clone> Future for Next<'_, T> {
     type Output = Option<T>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.subscriber.poll_next_ref(cx).map(opt_guard_to_owned)
+        let waker = Arc::new(cx.waker().clone());
+        let poll = self.subscriber.poll_next_ref(Arc::downgrade(&waker)).map(opt_guard_to_owned);
+        self.wakers.push(waker);
+        poll
     }
 }
 
