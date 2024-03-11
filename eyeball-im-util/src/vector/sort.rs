@@ -506,12 +506,28 @@ where
                 // Remove value at `old_index`, and insert the new value at `new_index - 1`: we need
                 // to subtract 1 because `old_index` has been removed before `new_insert`, which
                 // has shifted the indices.
+                //
+                // SAFETY: `new_index - 1` won't underflow because `new_index` is necessarily
+                // greater than `old_index` here. `old_index` cannot be lower than 0, so
+                // `new_index` cannot be lower than 1, hence `new_index - 1` cannot be lower
+                // than 0.
                 Ordering::Less => {
-                    buffered_vector.remove(old_index);
-                    buffered_vector.insert(new_index - 1, (new_unsorted_index, new_value.clone()));
+                    let new_index = new_index - 1;
+                    let new_unsorted_index_with_value = (new_unsorted_index, new_value.clone());
 
-                    result.push(VectorDiff::Remove { index: old_index });
-                    result.push(VectorDiff::Insert { index: new_index - 1, value: new_value });
+                    // If `old_index == new_index`, we are clearly updating the same index.
+                    // Then, let's emit a `VectorDiff::Set`.
+                    if old_index == new_index {
+                        buffered_vector.set(old_index, new_unsorted_index_with_value);
+
+                        result.push(VectorDiff::Set { index: old_index, value: new_value });
+                    } else {
+                        buffered_vector.remove(old_index);
+                        buffered_vector.insert(new_index, new_unsorted_index_with_value);
+
+                        result.push(VectorDiff::Remove { index: old_index });
+                        result.push(VectorDiff::Insert { index: new_index, value: new_value });
+                    }
                 }
                 // `old_index` is the same as `new_index`.
                 Ordering::Equal => {

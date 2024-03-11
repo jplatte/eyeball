@@ -338,9 +338,17 @@ fn set() {
     ob.set(0, 'd');
     assert_next_eq!(sub, VectorDiff::Set { index: 1, value: 'd' });
 
-    // Another value, that is sorted at the same index.
+    // Another value, that is sorted at the same sorted index: `d` is at the sorted
+    // index 1, and `c` is at the sorted index 1 too. The `VectorDiff::Remove` +
+    // `VectorDiff::Insert` are optimised as a single `VectorDiff::Set`.
     ob.set(0, 'c');
     assert_next_eq!(sub, VectorDiff::Set { index: 1, value: 'c' });
+
+    // Another value, that is sorted at an adjacent sorted index: `c` is at the
+    // sorted index 1, but `d` is at the sorted index 2. The `VectorDiff::Remove` +
+    // `VectorDiff::Insert` are optimised as a single `VectorDiff::Set`.
+    ob.set(0, 'd');
+    assert_next_eq!(sub, VectorDiff::Set { index: 1, value: 'd' });
 
     // Another value, that is moved to the left.
     ob.set(0, 'a');
