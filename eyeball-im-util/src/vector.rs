@@ -13,7 +13,7 @@ use self::ops::{VectorDiffContainerFamilyMember, VectorDiffContainerOps};
 pub use self::{
     filter::{Filter, FilterMap},
     limit::{EmptyLimitStream, Limit},
-    sort::SortBy,
+    sort::{Sort, SortBy, SortByKey},
     traits::{
         BatchedVectorSubscriber, VectorDiffContainer, VectorObserver, VectorObserverExt,
         VectorSubscriberExt,
