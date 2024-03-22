@@ -36,8 +36,9 @@
 //! // If multiple updates have happened without the subscriber being
 //! // polled, the next poll will skip all but the latest.
 //! Observable::set(&mut observable, "C".to_owned());
-//! assert_eq!(subscriber1.next().await, Some("C".to_owned()));
-//! assert_eq!(subscriber2.next().await, Some("C".to_owned()));
+//! Observable::set(&mut observable, "D".to_owned());
+//! assert_eq!(subscriber1.next().await, Some("D".to_owned()));
+//! assert_eq!(subscriber2.next().await, Some("D".to_owned()));
 //!
 //! // You can even obtain the value without cloning the value, by
 //! // using `.read()` (no waiting) or `.next_ref().await` (waits for
@@ -48,17 +49,17 @@
 //! // However, note that while a read guard returned by `.read()` or
 //! // `.next_ref().await` is alive, updating the observable is
 //! // blocked.
-//! Observable::set(&mut observable, "D".to_owned());
+//! Observable::set(&mut observable, "E".to_owned());
 //! {
 //!     let guard = subscriber1.next_ref().await.unwrap();
-//!     assert_eq!(*guard, "D");
+//!     assert_eq!(*guard, "E");
 //! }
 //!
 //! // The latest value is kept alive by subscribers when the
 //! // `Observable` is dropped.
 //! drop(observable);
-//! assert_eq!(subscriber1.get(), "D");
-//! assert_eq!(*subscriber2.read(), "D");
+//! assert_eq!(subscriber1.get(), "E");
+//! assert_eq!(*subscriber2.read(), "E");
 //! # }
 //! ```
 //!
