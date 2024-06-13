@@ -34,7 +34,8 @@
 //! assert_eq!(subscriber1.next().await, Some("B".to_owned()));
 //!
 //! // If multiple updates have happened without the subscriber being
-//! // polled, the next poll will skip all but the latest.
+//! // polled as is the case for subscriber2 here, the next poll will
+//! // skip all but the latest.
 //! Observable::set(&mut observable, "C".to_owned());
 //! assert_eq!(subscriber1.next().await, Some("C".to_owned()));
 //! assert_eq!(subscriber2.next().await, Some("C".to_owned()));
