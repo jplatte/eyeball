@@ -19,9 +19,9 @@ tokio-util = "0.7.8"
 tracing = { version = "0.1.37", default-features = false, features = ["std"] }
 
 [workspace.lints.rust]
+rust_2018_idioms = { level = "warn", priority = -1 }
 missing_debug_implementations = "warn"
 missing_docs = "warn"
-rust_2018_idioms = "warn"
 semicolon_in_expressions_from_macros = "warn"
 unreachable_pub = "warn"
 unused_import_braces = "warn"
