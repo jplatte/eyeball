@@ -1,3 +1,11 @@
+# 0.4.3
+
+- Don't emit a diff to subscribers if `clear` is called on an already-empty
+  `ObservableVector`
+- Add a `serde` feature
+  - For now, this only gates a `Serialize` impl for `VectorDiff`
+  - `Deserialize` might be added in the future
+
 # 0.4.2
 
 - Add `VectorDiff::apply` that applies a `VectorDiff` to a `Vector`
