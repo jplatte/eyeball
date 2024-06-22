@@ -1,3 +1,7 @@
+# 0.8.8
+
+Documentation improvements.
+
 # 0.8.7
 
 - When the `tracing` feature is enabled, emit a debug log when the value of an
