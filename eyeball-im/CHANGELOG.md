@@ -1,3 +1,7 @@
+# 0.5.0
+
+- Upgrade `imbl` dependency to version 3
+
 # 0.4.3
 
 - Don't emit a diff to subscribers if `clear` is called on an already-empty
