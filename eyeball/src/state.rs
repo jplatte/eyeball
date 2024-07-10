@@ -1,24 +1,27 @@
 use std::{
     hash::{Hash, Hasher},
     mem,
-    sync::{
-        atomic::{AtomicU64, Ordering},
-        RwLock,
-    },
-    task::Waker,
+    sync::RwLock,
+    task::{Context, Poll, Waker},
 };
 
 #[derive(Debug)]
 pub struct ObservableState<T> {
-    /// The inner value.
+    /// The wrapped value.
     value: T,
 
+    /// The attached observable metadata.
+    metadata: RwLock<ObservableStateMetadata>,
+}
+
+#[derive(Debug)]
+struct ObservableStateMetadata {
     /// The version of the value.
     ///
     /// Starts at 1 and is incremented by 1 each time the value is updated.
     /// When the observable is dropped, this is set to 0 to indicate no further
     /// updates will happen.
-    version: AtomicU64,
+    version: u64,
 
     /// List of wakers.
     ///
@@ -27,12 +30,18 @@ pub struct ObservableState<T> {
     /// locked for reading. This way, it is guaranteed that between a subscriber
     /// reading the value and adding a waker because the value hasn't changed
     /// yet, no updates to the value could have happened.
-    wakers: RwLock<Vec<Waker>>,
+    wakers: Vec<Waker>,
+}
+
+impl Default for ObservableStateMetadata {
+    fn default() -> Self {
+        Self { version: 1, wakers: Vec::new() }
+    }
 }
 
 impl<T> ObservableState<T> {
     pub(crate) fn new(value: T) -> Self {
-        Self { value, version: AtomicU64::new(1), wakers: Default::default() }
+        Self { value, metadata: Default::default() }
     }
 
     /// Get a reference to the inner value.
@@ -42,11 +51,25 @@ impl<T> ObservableState<T> {
 
     /// Get the current version of the inner value.
     pub(crate) fn version(&self) -> u64 {
-        self.version.load(Ordering::Acquire)
+        self.metadata.read().unwrap().version
     }
 
-    pub(crate) fn add_waker(&self, waker: Waker) {
-        self.wakers.write().unwrap().push(waker);
+    pub(crate) fn poll_update(
+        &self,
+        observed_version: &mut u64,
+        cx: &Context<'_>,
+    ) -> Poll<Option<()>> {
+        let mut metadata = self.metadata.write().unwrap();
+
+        if metadata.version == 0 {
+            Poll::Ready(None)
+        } else if *observed_version < metadata.version {
+            *observed_version = metadata.version;
+            Poll::Ready(Some(()))
+        } else {
+            metadata.wakers.push(cx.waker().clone());
+            Poll::Pending
+        }
     }
 
     pub(crate) fn set(&mut self, value: T) -> T {
@@ -90,14 +113,16 @@ impl<T> ObservableState<T> {
 
     /// "Close" the state – indicate that no further updates will happen.
     pub(crate) fn close(&self) {
-        self.version.store(0, Ordering::Release);
+        let mut metadata = self.metadata.write().unwrap();
+        metadata.version = 0;
         // Clear the backing buffer for the wakers, no new ones will be added.
-        wake(mem::take(&mut *self.wakers.write().unwrap()));
+        wake(mem::take(&mut metadata.wakers));
     }
 
     fn incr_version_and_wake(&mut self) {
-        self.version.fetch_add(1, Ordering::Release);
-        wake(self.wakers.get_mut().unwrap().drain(..));
+        let metadata = self.metadata.get_mut().unwrap();
+        metadata.version += 1;
+        wake(metadata.wakers.drain(..));
     }
 }
 

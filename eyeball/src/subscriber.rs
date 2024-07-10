@@ -122,16 +122,9 @@ impl<T> Subscriber<T> {
 
     fn poll_next_ref(&mut self, cx: &Context<'_>) -> Poll<Option<ObservableReadGuard<'_, T>>> {
         let state = self.state.lock();
-        let version = state.version();
-        if version == 0 {
-            Poll::Ready(None)
-        } else if self.observed_version < version {
-            self.observed_version = version;
-            Poll::Ready(Some(ObservableReadGuard::new(state)))
-        } else {
-            state.add_waker(cx.waker().clone());
-            Poll::Pending
-        }
+        state
+            .poll_update(&mut self.observed_version, cx)
+            .map(|ready| ready.map(|_| ObservableReadGuard::new(state)))
     }
 }
 

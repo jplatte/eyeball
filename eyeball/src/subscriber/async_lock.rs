@@ -134,17 +134,7 @@ impl<T: Send + Sync + 'static> Subscriber<T, AsyncLock> {
     fn poll_update(&mut self, cx: &mut Context<'_>) -> Poll<Option<()>> {
         let state = ready!(self.state.get_lock.poll(cx));
         self.state.get_lock.set(self.state.inner.clone().lock_owned());
-
-        let version = state.version();
-        if version == 0 {
-            Poll::Ready(None)
-        } else if self.observed_version < version {
-            self.observed_version = version;
-            Poll::Ready(Some(()))
-        } else {
-            state.add_waker(cx.waker().clone());
-            Poll::Pending
-        }
+        state.poll_update(&mut self.observed_version, cx)
     }
 
     fn poll_next_nopin(&mut self, cx: &mut Context<'_>) -> Poll<Option<T>>
@@ -153,17 +143,9 @@ impl<T: Send + Sync + 'static> Subscriber<T, AsyncLock> {
     {
         let state = ready!(self.state.get_lock.poll(cx));
         self.state.get_lock.set(self.state.inner.clone().lock_owned());
-
-        let version = state.version();
-        if version == 0 {
-            Poll::Ready(None)
-        } else if self.observed_version < version {
-            self.observed_version = version;
-            Poll::Ready(Some(state.get().clone()))
-        } else {
-            state.add_waker(cx.waker().clone());
-            Poll::Pending
-        }
+        state
+            .poll_update(&mut self.observed_version, cx)
+            .map(|ready| ready.map(|_| state.get().clone()))
     }
 }
 
