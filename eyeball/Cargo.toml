@@ -17,6 +17,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 futures-core.workspace = true
 readlock.workspace = true
 readlock-tokio = { version = "0.1.1", optional = true }
+slab = "0.4.9"
 tracing = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 tokio-util = { version = "0.7.8", optional = true }

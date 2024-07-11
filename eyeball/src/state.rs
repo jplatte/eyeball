@@ -5,6 +5,8 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
+use slab::Slab;
+
 #[derive(Debug)]
 pub struct ObservableState<T> {
     /// The wrapped value.
@@ -30,12 +32,12 @@ struct ObservableStateMetadata {
     /// locked for reading. This way, it is guaranteed that between a subscriber
     /// reading the value and adding a waker because the value hasn't changed
     /// yet, no updates to the value could have happened.
-    wakers: Vec<Waker>,
+    wakers: Slab<Waker>,
 }
 
 impl Default for ObservableStateMetadata {
     fn default() -> Self {
-        Self { version: 1, wakers: Vec::new() }
+        Self { version: 1, wakers: Slab::new() }
     }
 }
 
@@ -67,7 +69,7 @@ impl<T> ObservableState<T> {
             *observed_version = metadata.version;
             Poll::Ready(Some(()))
         } else {
-            metadata.wakers.push(cx.waker().clone());
+            metadata.wakers.insert(cx.waker().clone());
             Poll::Pending
         }
     }
@@ -116,13 +118,13 @@ impl<T> ObservableState<T> {
         let mut metadata = self.metadata.write().unwrap();
         metadata.version = 0;
         // Clear the backing buffer for the wakers, no new ones will be added.
-        wake(mem::take(&mut metadata.wakers));
+        wake(mem::take(&mut metadata.wakers).into_iter().map(|(_, val)| val));
     }
 
     fn incr_version_and_wake(&mut self) {
         let metadata = self.metadata.get_mut().unwrap();
         metadata.version += 1;
-        wake(metadata.wakers.drain(..));
+        wake(metadata.wakers.drain());
     }
 }
 
