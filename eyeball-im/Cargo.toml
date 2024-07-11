@@ -2,6 +2,7 @@
 name = "eyeball-im"
 version = "0.5.0"
 edition = "2021"
+rust-version = "1.64.0"
 description = "Observable collections based on the `im` crate."
 license.workspace = true
 repository.workspace = true

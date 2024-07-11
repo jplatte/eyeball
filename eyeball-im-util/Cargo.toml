@@ -2,6 +2,7 @@
 name = "eyeball-im-util"
 version = "0.6.0"
 edition = "2021"
+rust-version = "1.65.0"
 description = "Helpful utilities for `eyeball-im`."
 license.workspace = true
 repository.workspace = true
