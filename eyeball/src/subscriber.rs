@@ -22,11 +22,13 @@ pub(crate) mod async_lock;
 pub struct Subscriber<T, L: Lock = SyncLock> {
     state: L::SubscriberState<T>,
     observed_version: u64,
+    // TODO: NonMaxUsize would be nice
+    waker_key: Option<usize>,
 }
 
 impl<T> Subscriber<T> {
     pub(crate) fn new(state: readlock::SharedReadLock<ObservableState<T>>, version: u64) -> Self {
-        Self { state, observed_version: version }
+        Self { state, observed_version: version, waker_key: None }
     }
 
     /// Wait for an update and get a clone of the updated value.
@@ -123,7 +125,7 @@ impl<T> Subscriber<T> {
     fn poll_next_ref(&mut self, cx: &Context<'_>) -> Poll<Option<ObservableReadGuard<'_, T>>> {
         let state = self.state.lock();
         state
-            .poll_update(&mut self.observed_version, cx)
+            .poll_update(&mut self.observed_version, &mut self.waker_key, cx)
             .map(|ready| ready.map(|_| ObservableReadGuard::new(state)))
     }
 }
@@ -153,7 +155,7 @@ impl<T, L: Lock> Subscriber<T, L> {
     where
         L::SubscriberState<T>: Clone,
     {
-        Self { state: self.state.clone(), observed_version: 0 }
+        Self { state: self.state.clone(), observed_version: 0, waker_key: None }
     }
 }
 
@@ -171,7 +173,7 @@ where
     L::SubscriberState<T>: Clone,
 {
     fn clone(&self) -> Self {
-        Self { state: self.state.clone(), observed_version: self.observed_version }
+        Self { state: self.state.clone(), observed_version: self.observed_version, waker_key: None }
     }
 }
 
@@ -192,6 +194,14 @@ impl<T: Clone> Stream for Subscriber<T> {
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.poll_next_ref(cx).map(opt_guard_to_owned)
+    }
+}
+
+impl<T, L: Lock> Drop for Subscriber<T, L> {
+    fn drop(&mut self) {
+        if let Some(waker_key) = self.waker_key {
+            L::drop_waker(&self.state, self.observed_version, waker_key);
+        }
     }
 }
 

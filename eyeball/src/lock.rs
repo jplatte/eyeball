@@ -25,6 +25,8 @@ pub trait Lock {
     fn new_shared<T>(value: T) -> Self::Shared<T>;
     fn shared_read_count<T>(shared: &Self::Shared<T>) -> usize;
     fn shared_into_inner<T>(shared: Self::Shared<T>) -> Arc<Self::RwLock<T>>;
+
+    fn drop_waker<S>(state: &Self::SubscriberState<S>, observed_version: u64, waker_key: usize);
 }
 
 /// Marker type for using a synchronous lock for the inner value.
@@ -60,6 +62,12 @@ impl Lock for SyncLock {
     }
     fn shared_into_inner<T>(shared: Self::Shared<T>) -> Arc<Self::RwLock<T>> {
         Self::Shared::into_inner(shared)
+    }
+
+    fn drop_waker<S>(state: &Self::SubscriberState<S>, observed_version: u64, waker_key: usize) {
+        if let Ok(guard) = state.try_lock() {
+            guard.drop_waker(observed_version, waker_key);
+        }
     }
 }
 
@@ -98,5 +106,9 @@ impl Lock for AsyncLock {
     }
     fn shared_into_inner<T>(shared: Self::Shared<T>) -> Arc<Self::RwLock<T>> {
         Self::Shared::into_inner(shared)
+    }
+
+    fn drop_waker<S>(state: &Self::SubscriberState<S>, observed_version: u64, waker_key: usize) {
+        state.drop_waker(observed_version, waker_key);
     }
 }

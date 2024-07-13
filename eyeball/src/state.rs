@@ -59,18 +59,29 @@ impl<T> ObservableState<T> {
     pub(crate) fn poll_update(
         &self,
         observed_version: &mut u64,
+        waker_key: &mut Option<usize>,
         cx: &Context<'_>,
     ) -> Poll<Option<()>> {
         let mut metadata = self.metadata.write().unwrap();
 
         if metadata.version == 0 {
+            *waker_key = None;
             Poll::Ready(None)
         } else if *observed_version < metadata.version {
+            *waker_key = None;
             *observed_version = metadata.version;
             Poll::Ready(Some(()))
         } else {
-            metadata.wakers.insert(cx.waker().clone());
+            *waker_key = Some(metadata.wakers.insert(cx.waker().clone()));
             Poll::Pending
+        }
+    }
+
+    pub(crate) fn drop_waker(&self, observed_version: u64, waker_key: usize) {
+        let mut metadata = self.metadata.write().unwrap();
+        if metadata.version == observed_version {
+            let _res = metadata.wakers.try_remove(waker_key);
+            debug_assert!(_res.is_some());
         }
     }
 
