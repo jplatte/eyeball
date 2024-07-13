@@ -43,7 +43,7 @@ impl Lock for SyncLock {
     type SharedReadGuard<'a, T> = readlock::SharedReadGuard<'a, T>
     where
         T: 'a;
-    type SubscriberState<T> = readlock::SharedReadLock<ObservableState<T>>;
+    type SubscriberState<S> = readlock::SharedReadLock<ObservableState<S>>;
 
     fn new_rwlock<T>(value: T) -> Self::RwLock<T> {
         Self::RwLock::new(value)
@@ -81,8 +81,7 @@ impl Lock for AsyncLock {
     type SharedReadGuard<'a, T> = readlock_tokio::SharedReadGuard<'a, T>
     where
         T: 'a;
-    type SubscriberState<T> =
-        crate::subscriber::async_lock::AsyncSubscriberState<ObservableState<T>>;
+    type SubscriberState<S> = crate::subscriber::async_lock::AsyncSubscriberState<S>;
 
     fn new_rwlock<T>(value: T) -> Self::RwLock<T> {
         Self::RwLock::new(value)

@@ -6,14 +6,15 @@ use std::{
 };
 
 use futures_core::Stream;
+use readlock_tokio::{OwnedSharedReadGuard, SharedReadLock};
 use tokio_util::sync::ReusableBoxFuture;
 
 use super::{Next, Subscriber};
 use crate::{state::ObservableState, AsyncLock, ObservableReadGuard};
 
-pub struct AsyncSubscriberState<S> {
-    inner: readlock_tokio::SharedReadLock<S>,
-    get_lock: ReusableBoxFuture<'static, readlock_tokio::OwnedSharedReadGuard<S>>,
+pub struct AsyncSubscriberState<T> {
+    inner: SharedReadLock<ObservableState<T>>,
+    get_lock: ReusableBoxFuture<'static, OwnedSharedReadGuard<ObservableState<T>>>,
 }
 
 impl<S: Send + Sync + 'static> Clone for AsyncSubscriberState<S> {
@@ -32,10 +33,7 @@ impl<S: fmt::Debug> fmt::Debug for AsyncSubscriberState<S> {
 }
 
 impl<T: Send + Sync + 'static> Subscriber<T, AsyncLock> {
-    pub(crate) fn new_async(
-        inner: readlock_tokio::SharedReadLock<ObservableState<T>>,
-        version: u64,
-    ) -> Self {
+    pub(crate) fn new_async(inner: SharedReadLock<ObservableState<T>>, version: u64) -> Self {
         let get_lock = ReusableBoxFuture::new(inner.clone().lock_owned());
         Self { state: AsyncSubscriberState { inner, get_lock }, observed_version: version }
     }
