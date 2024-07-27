@@ -1,7 +1,8 @@
 use eyeball::SharedObservable;
-use tokio::task::JoinSet;
+use futures_util::future::join;
+use macro_rules_attribute::apply;
 
-#[tokio::test]
+#[apply(test!)]
 async fn lag() {
     let ob = SharedObservable::new("hello, world!".to_owned());
     let mut rx1 = ob.subscribe();
@@ -15,35 +16,31 @@ async fn lag() {
     assert_eq!(rx2.next().await, Some("B".to_owned()));
 }
 
-#[tokio::test]
-#[cfg_attr(miri, ignore)]
+#[apply(test!)]
 async fn separate_tasks() {
     let ob = SharedObservable::new(Box::new([0; 256]));
-
     let mut subscriber = ob.subscribe();
-    let handle = tokio::spawn(async move {
+
+    let recv_fut = async {
         let mut value = subscriber.next().await.unwrap();
         while let Some(update) = subscriber.next().await {
             value = update;
         }
         assert_eq!(value, Box::new([32; 256]));
         assert_eq!(subscriber.next().await, None);
-    });
-
-    let mut join_set = JoinSet::new();
-    for i in 1..=32 {
-        let ob = ob.clone();
-        join_set.spawn(async move {
+    };
+    let set_fut = async {
+        for i in 1..=32 {
             ob.set(Box::new([i; 256]));
-        });
-        tokio::task::yield_now().await;
-    }
-    drop(ob);
+            tokio::task::yield_now().await;
+        }
+        drop(ob);
+    };
 
-    handle.await.unwrap();
+    join(recv_fut, set_fut).await;
 }
 
-#[tokio::test]
+#[apply(test!)]
 async fn lag_no_clone() {
     // no Clone impl
     struct Foo(String);

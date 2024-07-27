@@ -1,6 +1,8 @@
 use eyeball::Observable;
+use futures_util::future::join;
+use macro_rules_attribute::apply;
 
-#[tokio::test]
+#[apply(test!)]
 async fn lag() {
     let mut ob = Observable::new("hello, world!".to_owned());
     let mut rx1 = Observable::subscribe(&ob);
@@ -14,30 +16,31 @@ async fn lag() {
     assert_eq!(rx2.next().await, Some("B".to_owned()));
 }
 
-#[tokio::test]
+#[apply(test!)]
 async fn separate_tasks() {
     let mut ob = Observable::new(Box::new([0; 256]));
-
     let mut subscriber = Observable::subscribe(&ob);
-    let handle = tokio::spawn(async move {
+
+    let recv_fut = async {
         let mut value = subscriber.next().await.unwrap();
         while let Some(update) = subscriber.next().await {
             value = update;
         }
         assert_eq!(value, Box::new([32; 256]));
         assert_eq!(subscriber.next().await, None);
-    });
+    };
+    let set_fut = async {
+        for i in 1..=32 {
+            Observable::set(&mut ob, Box::new([i; 256]));
+            tokio::task::yield_now().await;
+        }
+        drop(ob);
+    };
 
-    for i in 1..=32 {
-        Observable::set(&mut ob, Box::new([i; 256]));
-        tokio::task::yield_now().await;
-    }
-    drop(ob);
-
-    handle.await.unwrap();
+    join(recv_fut, set_fut).await;
 }
 
-#[tokio::test]
+#[apply(test!)]
 async fn lag_no_clone() {
     // no Clone impl
     struct Foo(String);
