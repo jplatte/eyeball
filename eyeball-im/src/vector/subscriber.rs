@@ -59,8 +59,9 @@ impl<T: Clone + Send + Sync + 'static> VectorSubscriber<T> {
     /// Destructure this `VectorSubscriber` into the initial values and a stream
     /// of `Vec<VectorDiff>`s.
     ///
-    /// Semantically equivalent to calling `.values()` and `.into_stream()`
-    /// separately, but guarantees that the values are not unnecessarily cloned.
+    /// Semantically equivalent to calling `.values()` and
+    /// `.into_batched_stream()` separately, but guarantees that the values
+    /// are not unnecessarily cloned.
     pub fn into_values_and_batched_stream(self) -> (Vector<T>, VectorSubscriberBatchedStream<T>) {
         let Self { values, rx } = self;
         (values, VectorSubscriberBatchedStream::new(ReusableBoxFuture::new(make_future(rx))))
