@@ -81,7 +81,7 @@ pub(super) enum EntryIndex<'a> {
     Owned(usize),
 }
 
-impl<'a> EntryIndex<'a> {
+impl EntryIndex<'_> {
     pub(super) fn value(&self) -> usize {
         match self {
             EntryIndex::Borrowed(idx) => **idx,
