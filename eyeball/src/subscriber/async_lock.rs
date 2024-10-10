@@ -17,6 +17,14 @@ pub struct AsyncSubscriberState<T> {
     get_lock: ReusableBoxFuture<'static, OwnedSharedReadGuard<ObservableState<T>>>,
 }
 
+impl<T> AsyncSubscriberState<T> {
+    pub(crate) fn drop_waker(&self, observed_version: u64, waker_key: usize) {
+        if let Ok(guard) = self.inner.try_lock() {
+            guard.drop_waker(observed_version, waker_key);
+        }
+    }
+}
+
 impl<S: Send + Sync + 'static> Clone for AsyncSubscriberState<S> {
     fn clone(&self) -> Self {
         Self {
@@ -35,7 +43,11 @@ impl<S: fmt::Debug> fmt::Debug for AsyncSubscriberState<S> {
 impl<T: Send + Sync + 'static> Subscriber<T, AsyncLock> {
     pub(crate) fn new_async(inner: SharedReadLock<ObservableState<T>>, version: u64) -> Self {
         let get_lock = ReusableBoxFuture::new(inner.clone().lock_owned());
-        Self { state: AsyncSubscriberState { inner, get_lock }, observed_version: version }
+        Self {
+            state: AsyncSubscriberState { inner, get_lock },
+            observed_version: version,
+            waker_key: None,
+        }
     }
 
     /// Wait for an update and get a clone of the updated value.
@@ -132,7 +144,7 @@ impl<T: Send + Sync + 'static> Subscriber<T, AsyncLock> {
     fn poll_update(&mut self, cx: &mut Context<'_>) -> Poll<Option<()>> {
         let state = ready!(self.state.get_lock.poll(cx));
         self.state.get_lock.set(self.state.inner.clone().lock_owned());
-        state.poll_update(&mut self.observed_version, cx)
+        state.poll_update(&mut self.observed_version, &mut self.waker_key, cx)
     }
 
     fn poll_next_nopin(&mut self, cx: &mut Context<'_>) -> Poll<Option<T>>
@@ -142,7 +154,7 @@ impl<T: Send + Sync + 'static> Subscriber<T, AsyncLock> {
         let state = ready!(self.state.get_lock.poll(cx));
         self.state.get_lock.set(self.state.inner.clone().lock_owned());
         state
-            .poll_update(&mut self.observed_version, cx)
+            .poll_update(&mut self.observed_version, &mut self.waker_key, cx)
             .map(|ready| ready.map(|_| state.get().clone()))
     }
 }
