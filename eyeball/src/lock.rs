@@ -33,14 +33,17 @@ pub enum SyncLock {}
 
 impl Lock for SyncLock {
     type RwLock<T> = std::sync::RwLock<T>;
-    type RwLockReadGuard<'a, T> = std::sync::RwLockReadGuard<'a, T>
+    type RwLockReadGuard<'a, T>
+        = std::sync::RwLockReadGuard<'a, T>
     where
         T: 'a;
-    type RwLockWriteGuard<'a, T> = std::sync::RwLockWriteGuard<'a, T>
+    type RwLockWriteGuard<'a, T>
+        = std::sync::RwLockWriteGuard<'a, T>
     where
         T: 'a;
     type Shared<T> = readlock::Shared<T>;
-    type SharedReadGuard<'a, T> = readlock::SharedReadGuard<'a, T>
+    type SharedReadGuard<'a, T>
+        = readlock::SharedReadGuard<'a, T>
     where
         T: 'a;
     type SubscriberState<S> = readlock::SharedReadLock<ObservableState<S>>;
@@ -71,14 +74,17 @@ pub enum AsyncLock {}
 #[cfg(feature = "async-lock")]
 impl Lock for AsyncLock {
     type RwLock<T> = tokio::sync::RwLock<T>;
-    type RwLockReadGuard<'a, T> = tokio::sync::RwLockReadGuard<'a, T>
+    type RwLockReadGuard<'a, T>
+        = tokio::sync::RwLockReadGuard<'a, T>
     where
         T: 'a;
-    type RwLockWriteGuard<'a, T> = tokio::sync::RwLockWriteGuard<'a, T>
+    type RwLockWriteGuard<'a, T>
+        = tokio::sync::RwLockWriteGuard<'a, T>
     where
         T: 'a;
     type Shared<T> = readlock_tokio::Shared<T>;
-    type SharedReadGuard<'a, T> = readlock_tokio::SharedReadGuard<'a, T>
+    type SharedReadGuard<'a, T>
+        = readlock_tokio::SharedReadGuard<'a, T>
     where
         T: 'a;
     type SubscriberState<S> = crate::subscriber::async_lock::AsyncSubscriberState<S>;
