@@ -10,7 +10,7 @@ pub struct ObservableVectorEntry<'a, T> {
 
 impl<'a, T> ObservableVectorEntry<'a, T>
 where
-    T: Clone + Send + Sync + 'static,
+    T: Clone + 'static,
 {
     pub(super) fn new(inner: &'a mut ObservableVector<T>, index: usize) -> Self {
         Self { inner, index: EntryIndex::Owned(index) }
@@ -115,7 +115,7 @@ pub struct ObservableVectorEntries<'a, T> {
 
 impl<'a, T> ObservableVectorEntries<'a, T>
 where
-    T: Clone + Send + Sync + 'static,
+    T: Clone + 'static,
 {
     pub(super) fn new(inner: &'a mut ObservableVector<T>) -> Self {
         Self { inner, index: 0 }
