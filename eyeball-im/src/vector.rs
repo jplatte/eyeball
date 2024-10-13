@@ -22,7 +22,7 @@ pub struct ObservableVector<T> {
     sender: Sender<BroadcastMessage<T>>,
 }
 
-impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
+impl<T: Clone + 'static> ObservableVector<T> {
     /// Create a new `ObservableVector`.
     ///
     /// As of the time of writing, this is equivalent to
@@ -290,7 +290,7 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
     }
 }
 
-impl<T: Clone + Send + Sync + 'static> Default for ObservableVector<T> {
+impl<T: Clone + 'static> Default for ObservableVector<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -315,7 +315,7 @@ impl<T> ops::Deref for ObservableVector<T> {
     }
 }
 
-impl<T: Clone + Send + Sync + 'static> From<Vector<T>> for ObservableVector<T> {
+impl<T: Clone + 'static> From<Vector<T>> for ObservableVector<T> {
     fn from(values: Vector<T>) -> Self {
         let mut this = Self::new();
         this.append(values);

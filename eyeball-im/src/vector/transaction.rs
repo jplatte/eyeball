@@ -21,7 +21,7 @@ pub struct ObservableVectorTransaction<'o, T: Clone> {
     batch: Vec<VectorDiff<T>>,
 }
 
-impl<'o, T: Clone + Send + Sync + 'static> ObservableVectorTransaction<'o, T> {
+impl<'o, T: Clone + 'static> ObservableVectorTransaction<'o, T> {
     pub(super) fn new(inner: &'o mut ObservableVector<T>) -> Self {
         let values = inner.values.clone();
         Self { inner, values, batch: Vec::new() }
@@ -316,7 +316,7 @@ pub struct ObservableVectorTransactionEntry<'a, 'o, T: Clone> {
 
 impl<'a, 'o, T> ObservableVectorTransactionEntry<'a, 'o, T>
 where
-    T: Clone + Send + Sync + 'static,
+    T: Clone + 'static,
 {
     pub(super) fn new(inner: &'a mut ObservableVectorTransaction<'o, T>, index: usize) -> Self {
         Self { inner, index: EntryIndex::Owned(index) }
@@ -397,7 +397,7 @@ pub struct ObservableVectorTransactionEntries<'a, 'o, T: Clone> {
 
 impl<'a, 'o, T> ObservableVectorTransactionEntries<'a, 'o, T>
 where
-    T: Clone + Send + Sync + 'static,
+    T: Clone + 'static,
 {
     pub(super) fn new(inner: &'a mut ObservableVectorTransaction<'o, T>) -> Self {
         Self { inner, index: 0 }
