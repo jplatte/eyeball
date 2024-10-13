@@ -12,11 +12,14 @@ use tokio::sync::broadcast::{
     error::{RecvError, TryRecvError},
     Receiver,
 };
-use tokio_util::sync::ReusableBoxFuture;
+
 #[cfg(feature = "tracing")]
 use tracing::info;
 
-use super::{BroadcastMessage, OneOrManyDiffs, VectorDiff};
+use super::{
+    traits::{ReusableBoxFuture, SendOutsideWasm, SyncOutsideWasm},
+    BroadcastMessage, OneOrManyDiffs, VectorDiff,
+};
 
 /// A subscriber for updates of a [`Vector`].
 #[derive(Debug)]
@@ -25,7 +28,7 @@ pub struct VectorSubscriber<T> {
     rx: Receiver<BroadcastMessage<T>>,
 }
 
-impl<T: Clone + Send + Sync + 'static> VectorSubscriber<T> {
+impl<T: Clone + SendOutsideWasm + SyncOutsideWasm + 'static> VectorSubscriber<T> {
     pub(super) fn new(items: Vector<T>, rx: Receiver<BroadcastMessage<T>>) -> Self {
         Self { values: items, rx }
     }
@@ -100,7 +103,7 @@ enum VectorSubscriberStreamState<T> {
 // Not clear why this explicit impl is needed, but it's not unsafe so it is fine
 impl<T> Unpin for VectorSubscriberStreamState<T> {}
 
-impl<T: Clone + Send + Sync + 'static> Stream for VectorSubscriberStream<T> {
+impl<T: Clone + SendOutsideWasm + SyncOutsideWasm + 'static> Stream for VectorSubscriberStream<T> {
     type Item = VectorDiff<T>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -171,7 +174,9 @@ impl<T> VectorSubscriberBatchedStream<T> {
     }
 }
 
-impl<T: Clone + Send + Sync + 'static> Stream for VectorSubscriberBatchedStream<T> {
+impl<T: Clone + SendOutsideWasm + SyncOutsideWasm + 'static> Stream
+    for VectorSubscriberBatchedStream<T>
+{
     type Item = Vec<VectorDiff<T>>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -213,7 +218,7 @@ impl<T: Clone + Send + Sync + 'static> Stream for VectorSubscriberBatchedStream<
     }
 }
 
-fn handle_lag<T: Clone + Send + Sync + 'static>(
+fn handle_lag<T: Clone + SendOutsideWasm + SyncOutsideWasm + 'static>(
     rx: &mut Receiver<BroadcastMessage<T>>,
 ) -> Option<Vector<T>> {
     let mut msg = None;

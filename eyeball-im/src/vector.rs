@@ -2,9 +2,11 @@ use std::{fmt, ops};
 
 use imbl::Vector;
 use tokio::sync::broadcast::{self, Sender};
+use traits::{SendOutsideWasm, SyncOutsideWasm};
 
 mod entry;
 mod subscriber;
+mod traits;
 mod transaction;
 
 pub use self::{
@@ -22,7 +24,7 @@ pub struct ObservableVector<T> {
     sender: Sender<BroadcastMessage<T>>,
 }
 
-impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
+impl<T: Clone + SendOutsideWasm + SyncOutsideWasm + 'static> ObservableVector<T> {
     /// Create a new `ObservableVector`.
     ///
     /// As of the time of writing, this is equivalent to
@@ -290,7 +292,7 @@ impl<T: Clone + Send + Sync + 'static> ObservableVector<T> {
     }
 }
 
-impl<T: Clone + Send + Sync + 'static> Default for ObservableVector<T> {
+impl<T: Clone + SendOutsideWasm + SyncOutsideWasm + 'static> Default for ObservableVector<T> {
     fn default() -> Self {
         Self::new()
     }
@@ -315,7 +317,9 @@ impl<T> ops::Deref for ObservableVector<T> {
     }
 }
 
-impl<T: Clone + Send + Sync + 'static> From<Vector<T>> for ObservableVector<T> {
+impl<T: Clone + SendOutsideWasm + SyncOutsideWasm + 'static> From<Vector<T>>
+    for ObservableVector<T>
+{
     fn from(values: Vector<T>) -> Self {
         let mut this = Self::new();
         this.append(values);

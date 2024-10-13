@@ -17,7 +17,7 @@ pub struct AsyncSubscriberState<T> {
     get_lock: ReusableBoxFuture<'static, OwnedSharedReadGuard<ObservableState<T>>>,
 }
 
-impl<S: Send + Sync + 'static> Clone for AsyncSubscriberState<S> {
+impl<S: SendOutsideWasm + SyncOutsideWasm + 'static> Clone for AsyncSubscriberState<S> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -32,7 +32,7 @@ impl<S: fmt::Debug> fmt::Debug for AsyncSubscriberState<S> {
     }
 }
 
-impl<T: Send + Sync + 'static> Subscriber<T, AsyncLock> {
+impl<T: SendOutsideWasm + SyncOutsideWasm + 'static> Subscriber<T, AsyncLock> {
     pub(crate) fn new_async(inner: SharedReadLock<ObservableState<T>>, version: u64) -> Self {
         let get_lock = ReusableBoxFuture::new(inner.clone().lock_owned());
         Self { state: AsyncSubscriberState { inner, get_lock }, observed_version: version }
@@ -147,7 +147,7 @@ impl<T: Send + Sync + 'static> Subscriber<T, AsyncLock> {
     }
 }
 
-impl<T: Clone + Send + Sync + 'static> Stream for Subscriber<T, AsyncLock> {
+impl<T: Clone + SendOutsideWasm + SyncOutsideWasm + 'static> Stream for Subscriber<T, AsyncLock> {
     type Item = T;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -155,7 +155,7 @@ impl<T: Clone + Send + Sync + 'static> Stream for Subscriber<T, AsyncLock> {
     }
 }
 
-impl<T: Clone + Send + Sync + 'static> Future for Next<'_, T, AsyncLock> {
+impl<T: Clone + SendOutsideWasm + SyncOutsideWasm + 'static> Future for Next<'_, T, AsyncLock> {
     type Output = Option<T>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {

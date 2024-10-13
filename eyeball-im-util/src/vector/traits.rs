@@ -15,6 +15,34 @@ use super::{
     EmptyLimitStream, Filter, FilterMap, Limit, Sort, SortBy, SortByKey,
 };
 
+/// Alias for `Send` on non-wasm, empty trait (implemented by everything) on
+/// wasm.
+#[cfg(not(target_arch = "wasm32"))]
+pub trait SendOutsideWasm: Send {}
+#[cfg(not(target_arch = "wasm32"))]
+impl<T: Send> SendOutsideWasm for T {}
+
+/// Alias for `Send` on non-wasm, empty trait (implemented by everything) on
+/// wasm.
+#[cfg(target_arch = "wasm32")]
+pub trait SendOutsideWasm {}
+#[cfg(target_arch = "wasm32")]
+impl<T> SendOutsideWasm for T {}
+
+/// Alias for `Sync` on non-wasm, empty trait (implemented by everything) on
+/// wasm.
+#[cfg(not(target_arch = "wasm32"))]
+pub trait SyncOutsideWasm: Sync {}
+#[cfg(not(target_arch = "wasm32"))]
+impl<T: Sync> SyncOutsideWasm for T {}
+
+/// Alias for `Sync` on non-wasm, empty trait (implemented by everything) on
+/// wasm.
+#[cfg(target_arch = "wasm32")]
+pub trait SyncOutsideWasm {}
+#[cfg(target_arch = "wasm32")]
+impl<T> SyncOutsideWasm for T {}
+
 /// Abstraction over stream items that the adapters in this module can deal
 /// with.
 pub trait VectorDiffContainer:
@@ -22,18 +50,20 @@ pub trait VectorDiffContainer:
 {
     /// The element type of the [`Vector`][imbl::Vector] that diffs are being
     /// handled for.
-    type Element: Clone + Send + Sync + 'static;
+    type Element: Clone + SendOutsideWasm + SyncOutsideWasm + 'static;
 
     #[doc(hidden)]
     type Family: VectorDiffContainerFamily<Member<Self::Element> = Self>;
 }
 
-impl<T: Clone + Send + Sync + 'static> VectorDiffContainer for VectorDiff<T> {
+impl<T: Clone + SendOutsideWasm + SyncOutsideWasm + 'static> VectorDiffContainer for VectorDiff<T> {
     type Element = T;
     type Family = VectorDiffFamily;
 }
 
-impl<T: Clone + Send + Sync + 'static> VectorDiffContainer for Vec<VectorDiff<T>> {
+impl<T: Clone + SendOutsideWasm + SyncOutsideWasm + 'static> VectorDiffContainer
+    for Vec<VectorDiff<T>>
+{
     type Element = T;
     type Family = VecVectorDiffFamily;
 }
@@ -69,7 +99,9 @@ pub trait VectorObserver<T>: Sized {
     fn into_parts(self) -> (Vector<T>, Self::Stream);
 }
 
-impl<T: Clone + Send + Sync + 'static> VectorObserver<T> for VectorSubscriber<T> {
+impl<T: Clone + SendOutsideWasm + SyncOutsideWasm + 'static> VectorObserver<T>
+    for VectorSubscriber<T>
+{
     type Stream = VectorSubscriberStream<T>;
 
     fn into_parts(self) -> (Vector<T>, Self::Stream) {
@@ -77,7 +109,9 @@ impl<T: Clone + Send + Sync + 'static> VectorObserver<T> for VectorSubscriber<T>
     }
 }
 
-impl<T: Clone + Send + Sync + 'static> VectorObserver<T> for BatchedVectorSubscriber<T> {
+impl<T: Clone + SendOutsideWasm + SyncOutsideWasm + 'static> VectorObserver<T>
+    for BatchedVectorSubscriber<T>
+{
     type Stream = VectorSubscriberBatchedStream<T>;
 
     fn into_parts(self) -> (Vector<T>, Self::Stream) {
@@ -102,7 +136,7 @@ where
 /// See that trait for which types implement this.
 pub trait VectorObserverExt<T>: VectorObserver<T>
 where
-    T: Clone + Send + Sync + 'static,
+    T: Clone + SendOutsideWasm + SyncOutsideWasm + 'static,
     <Self::Stream as Stream>::Item: VectorDiffContainer<Element = T>,
 {
     /// Filter the vector's values with the given function.
@@ -197,7 +231,7 @@ where
 
 impl<T, O> VectorObserverExt<T> for O
 where
-    T: Clone + Send + Sync + 'static,
+    T: Clone + SendOutsideWasm + SyncOutsideWasm + 'static,
     O: VectorObserver<T>,
     <Self::Stream as Stream>::Item: VectorDiffContainer<Element = T>,
 {

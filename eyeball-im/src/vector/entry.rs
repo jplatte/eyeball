@@ -1,6 +1,9 @@
 use std::{fmt, ops::Deref};
 
-use super::ObservableVector;
+use super::{
+    traits::{SendOutsideWasm, SyncOutsideWasm},
+    ObservableVector,
+};
 
 /// A handle to a single value in an [`ObservableVector`].
 pub struct ObservableVectorEntry<'a, T> {
@@ -10,7 +13,7 @@ pub struct ObservableVectorEntry<'a, T> {
 
 impl<'a, T> ObservableVectorEntry<'a, T>
 where
-    T: Clone + Send + Sync + 'static,
+    T: Clone + SendOutsideWasm + SyncOutsideWasm + 'static,
 {
     pub(super) fn new(inner: &'a mut ObservableVector<T>, index: usize) -> Self {
         Self { inner, index: EntryIndex::Owned(index) }
@@ -115,7 +118,7 @@ pub struct ObservableVectorEntries<'a, T> {
 
 impl<'a, T> ObservableVectorEntries<'a, T>
 where
-    T: Clone + Send + Sync + 'static,
+    T: Clone + SendOutsideWasm + SyncOutsideWasm + 'static,
 {
     pub(super) fn new(inner: &'a mut ObservableVector<T>) -> Self {
         Self { inner, index: 0 }
