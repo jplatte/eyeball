@@ -70,7 +70,7 @@ where
 /// This type lets you replace the future stored in the box without
 /// reallocating when the size and alignment permits this.
 #[cfg(target_arch = "wasm32")]
-pub struct ReusableBoxFuture<'a, T> {
+pub(crate) struct ReusableBoxFuture<'a, T> {
     boxed: Pin<Box<dyn Future<Output = T> + 'a>>,
 }
 
@@ -84,7 +84,7 @@ impl<'a, T> fmt::Debug for ReusableBoxFuture<'a, T> {
 #[cfg(target_arch = "wasm32")]
 impl<'a, T> ReusableBoxFuture<'a, T> {
     /// Create a new `ReusableBoxFuture<T>` containing the provided future.
-    pub fn new<F>(future: F) -> Self
+    pub(crate) fn new<F>(future: F) -> Self
     where
         F: Future<Output = T> + 'a,
     {
@@ -95,7 +95,7 @@ impl<'a, T> ReusableBoxFuture<'a, T> {
     ///
     /// This reallocates if and only if the layout of the provided future is
     /// different from the layout of the currently stored future.
-    pub fn set<F>(&mut self, future: F)
+    pub(crate) fn set<F>(&mut self, future: F)
     where
         F: Future<Output = T> + SendOutsideWasm + 'a,
     {
@@ -109,7 +109,7 @@ impl<'a, T> ReusableBoxFuture<'a, T> {
     /// This function never reallocates, but returns an error if the provided
     /// future has a different size or alignment from the currently stored
     /// future.
-    pub fn try_set<F>(&mut self, future: F) -> Result<(), F>
+    pub(crate) fn try_set<F>(&mut self, future: F) -> Result<(), F>
     where
         F: Future<Output = T> + SendOutsideWasm + 'a,
     {
@@ -134,12 +134,12 @@ impl<'a, T> ReusableBoxFuture<'a, T> {
     }
 
     /// Get a pinned reference to the underlying future.
-    pub fn get_pin(&mut self) -> Pin<&mut (dyn Future<Output = T>)> {
+    pub(crate) fn get_pin(&mut self) -> Pin<&mut (dyn Future<Output = T>)> {
         self.boxed.as_mut()
     }
 
     /// Poll the future stored inside this box.
-    pub fn poll(&mut self, cx: &mut Context<'_>) -> Poll<T> {
+    pub(crate) fn poll(&mut self, cx: &mut Context<'_>) -> Poll<T> {
         self.get_pin().poll(cx)
     }
 }
