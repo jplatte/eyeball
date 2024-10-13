@@ -1,4 +1,5 @@
 use std::{
+    fmt,
     hint::unreachable_unchecked,
     mem,
     pin::Pin,
@@ -6,13 +7,14 @@ use std::{
     vec,
 };
 
+use crate::reusable_box::ReusableBoxFuture;
 use futures_core::Stream;
 use imbl::Vector;
 use tokio::sync::broadcast::{
+    self,
     error::{RecvError, TryRecvError},
     Receiver,
 };
-use tokio_util::sync::ReusableBoxFuture;
 #[cfg(feature = "tracing")]
 use tracing::info;
 
@@ -38,12 +40,12 @@ impl<T: Clone + Send + Sync + 'static> VectorSubscriber<T> {
 
     /// Turn this `VectorSubcriber` into a stream of `VectorDiff`s.
     pub fn into_stream(self) -> VectorSubscriberStream<T> {
-        VectorSubscriberStream::new(ReusableBoxFuture::new(make_future(self.rx)))
+        VectorSubscriberStream::new(ReusableBoxRecvFuture::new(self.rx))
     }
 
     /// Turn this `VectorSubcriber` into a stream of `Vec<VectorDiff>`s.
     pub fn into_batched_stream(self) -> VectorSubscriberBatchedStream<T> {
-        VectorSubscriberBatchedStream::new(ReusableBoxFuture::new(make_future(self.rx)))
+        VectorSubscriberBatchedStream::new(ReusableBoxRecvFuture::new(self.rx))
     }
 
     /// Destructure this `VectorSubscriber` into the initial values and a stream
@@ -53,7 +55,7 @@ impl<T: Clone + Send + Sync + 'static> VectorSubscriber<T> {
     /// separately, but guarantees that the values are not unnecessarily cloned.
     pub fn into_values_and_stream(self) -> (Vector<T>, VectorSubscriberStream<T>) {
         let Self { values, rx } = self;
-        (values, VectorSubscriberStream::new(ReusableBoxFuture::new(make_future(rx))))
+        (values, VectorSubscriberStream::new(ReusableBoxRecvFuture::new(rx)))
     }
 
     /// Destructure this `VectorSubscriber` into the initial values and a stream
@@ -64,12 +66,9 @@ impl<T: Clone + Send + Sync + 'static> VectorSubscriber<T> {
     /// are not unnecessarily cloned.
     pub fn into_values_and_batched_stream(self) -> (Vector<T>, VectorSubscriberBatchedStream<T>) {
         let Self { values, rx } = self;
-        (values, VectorSubscriberBatchedStream::new(ReusableBoxFuture::new(make_future(rx))))
+        (values, VectorSubscriberBatchedStream::new(ReusableBoxRecvFuture::new(rx)))
     }
 }
-
-type ReusableBoxRecvFuture<T> =
-    ReusableBoxFuture<'static, SubscriberFutureReturn<BroadcastMessage<T>>>;
 
 /// A stream of `VectorDiff`s created from a [`VectorSubscriber`].
 ///
@@ -130,7 +129,7 @@ impl<T: Clone + Send + Sync + 'static> Stream for VectorSubscriberStream<T> {
                     }
                 };
 
-                self.inner.set(make_future(rx));
+                self.inner.set(rx);
                 poll
             }
             VectorSubscriberStreamState::YieldBatch { iter, .. } => {
@@ -146,7 +145,7 @@ impl<T: Clone + Send + Sync + 'static> Stream for VectorSubscriberStream<T> {
                         _ => unsafe { unreachable_unchecked() },
                     };
 
-                    self.inner.set(make_future(rx));
+                    self.inner.set(rx);
                 }
 
                 Poll::Ready(Some(diff))
@@ -208,7 +207,7 @@ impl<T: Clone + Send + Sync + 'static> Stream for VectorSubscriberBatchedStream<
             }
         };
 
-        self.inner.set(make_future(rx));
+        self.inner.set(rx);
         poll
     }
 }
@@ -247,7 +246,53 @@ fn handle_lag<T: Clone + Send + Sync + 'static>(
 
 type SubscriberFutureReturn<T> = (Result<T, RecvError>, Receiver<T>);
 
-async fn make_future<T: Clone>(mut rx: Receiver<T>) -> SubscriberFutureReturn<T> {
+struct ReusableBoxRecvFuture<T> {
+    inner: ReusableBoxFuture<'static, SubscriberFutureReturn<BroadcastMessage<T>>>,
+}
+
+async fn make_recv_future<T: Clone>(mut rx: Receiver<T>) -> SubscriberFutureReturn<T> {
     let result = rx.recv().await;
     (result, rx)
+}
+
+impl<T> ReusableBoxRecvFuture<T>
+where
+    T: Clone + 'static,
+{
+    fn set(&mut self, rx: Receiver<BroadcastMessage<T>>) {
+        self.inner.set(make_recv_future(rx));
+    }
+
+    fn poll(&mut self, cx: &mut Context<'_>) -> Poll<SubscriberFutureReturn<BroadcastMessage<T>>> {
+        self.inner.poll(cx)
+    }
+}
+
+impl<T> ReusableBoxRecvFuture<T>
+where
+    T: Clone + 'static,
+{
+    fn new(rx: Receiver<BroadcastMessage<T>>) -> Self {
+        Self { inner: ReusableBoxFuture::new(make_recv_future(rx)) }
+    }
+}
+
+fn assert_send<T: Send>(_val: T) {}
+#[allow(unused)]
+fn assert_make_future_send() {
+    #[derive(Clone)]
+    struct IsSend(*mut ());
+    unsafe impl Send for IsSend {}
+
+    let (_sender, receiver): (_, Receiver<IsSend>) = broadcast::channel(1);
+
+    assert_send(make_recv_future(receiver));
+}
+// SAFETY: make_future is Send if T is, as proven by assert_make_future_send.
+unsafe impl<T: Send> Send for ReusableBoxRecvFuture<T> {}
+
+impl<T> fmt::Debug for ReusableBoxRecvFuture<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ReusableBoxRecvFuture").finish()
+    }
 }

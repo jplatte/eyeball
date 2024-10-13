@@ -4,6 +4,7 @@
 //!
 //! - `tracing`: Emit [tracing] events when updates are sent out
 
+mod reusable_box;
 mod vector;
 
 pub use vector::{
