@@ -1,3 +1,7 @@
+# 0.7.0
+
+- Remove `Send` and `Sync` constraints from some traits and associated types
+
 # 0.6.0
 
 - Remove lifetime parameter from `SortBy`
