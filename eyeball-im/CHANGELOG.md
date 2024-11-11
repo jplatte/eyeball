@@ -1,3 +1,7 @@
+# 0.5.1
+
+- Remove `Send` and `Sync` constraints for `VectorSubscriber`
+
 # 0.5.0
 
 - Upgrade `imbl` dependency to version 3

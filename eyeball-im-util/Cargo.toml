@@ -14,7 +14,7 @@ all-features = true
 
 [dependencies]
 arrayvec = "0.7.4"
-eyeball-im = { version = "0.5.0", path = "../eyeball-im" }
+eyeball-im = { version = "0.5.1", path = "../eyeball-im" }
 futures-core.workspace = true
 imbl = "3.0.0"
 pin-project-lite = "0.2.9"
