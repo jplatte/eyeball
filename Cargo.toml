@@ -12,7 +12,7 @@ keywords = ["async", "observable", "reactive"]
 assert_matches = "1.5.0"
 futures-core = "0.3.26"
 futures-util = { version = "0.3.26", default-features = false }
-readlock = "0.1.5"
+readlock = "0.1.8"
 stream_assert = "0.1.0"
 tokio = { version = "1.25.0", features = ["sync"] }
 tokio-util = "0.7.8"
