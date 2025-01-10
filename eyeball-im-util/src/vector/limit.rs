@@ -7,8 +7,8 @@ use std::{
 };
 
 use super::{
-    VectorDiffContainer, VectorDiffContainerOps, VectorDiffContainerStreamElement,
-    VectorDiffContainerStreamLimitBuf, VectorObserver,
+    VectorDiffContainer, VectorDiffContainerOps, VectorDiffContainerStreamArrayBuf,
+    VectorDiffContainerStreamElement, VectorObserver,
 };
 use eyeball_im::VectorDiff;
 use futures_core::Stream;
@@ -63,7 +63,7 @@ pin_project! {
         // with a limit of 2 on top: if an item is popped at the front then 10
         // is removed, but 12 has to be pushed back as it "enters" the "view".
         // That second `PushBack` diff is buffered here.
-        ready_values: VectorDiffContainerStreamLimitBuf<S>,
+        ready_values: VectorDiffContainerStreamArrayBuf<S>,
     }
 }
 
@@ -176,7 +176,7 @@ where
     fn poll_next(&mut self, cx: &mut task::Context<'_>) -> Poll<Option<S::Item>> {
         loop {
             // First off, if any values are ready, return them.
-            if let Some(value) = S::Item::pop_from_limit_buf(self.ready_values) {
+            if let Some(value) = S::Item::pop_from_array_buf(self.ready_values) {
                 return Poll::Ready(Some(value));
             }
 
@@ -197,7 +197,7 @@ where
             };
 
             // Consume and apply the diffs if possible.
-            let ready = diffs.push_into_limit_buf(self.ready_values, |diff| {
+            let ready = diffs.push_into_array_buf(self.ready_values, |diff| {
                 let limit = *self.limit;
                 let prev_len = self.buffered_vector.len();
 
