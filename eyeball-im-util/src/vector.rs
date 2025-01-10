@@ -4,6 +4,7 @@ mod filter;
 mod head;
 mod ops;
 mod sort;
+mod tail;
 mod traits;
 
 use eyeball_im::VectorDiff;
@@ -14,6 +15,7 @@ pub use self::{
     filter::{Filter, FilterMap},
     head::{EmptyLimitStream, Head},
     sort::{Sort, SortBy, SortByKey},
+    tail::Tail,
     traits::{
         BatchedVectorSubscriber, VectorDiffContainer, VectorObserver, VectorObserverExt,
         VectorSubscriberExt,
@@ -44,6 +46,11 @@ type VectorDiffContainerDiff<S> = VectorDiff<VectorDiffContainerStreamElement<S>
 /// [`VectorDiffContainer`]s' `HeadBuf`.
 type VectorDiffContainerStreamHeadBuf<S> =
     <<S as Stream>::Item as VectorDiffContainerOps<VectorDiffContainerStreamElement<S>>>::HeadBuf;
+
+/// Type alias for extracting the buffer type from a stream of
+/// [`VectorDiffContainer`]s' `TailBuf`.
+type VectorDiffContainerStreamTailBuf<S> =
+    <<S as Stream>::Item as VectorDiffContainerOps<VectorDiffContainerStreamElement<S>>>::TailBuf;
 
 /// Type alias for extracting the buffer type from a stream of
 /// [`VectorDiffContainer`]s' `SortBuf`.
