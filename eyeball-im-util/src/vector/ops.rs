@@ -124,7 +124,7 @@ impl<T> VectorDiffContainerOps<T> for Vec<VectorDiff<T>> {
 
     fn push_into_limit_buf(
         self,
-        _buffer: &mut (),
+        _buffer: &mut Self::LimitBuf,
         make_diffs: impl FnMut(VectorDiff<T>) -> ArrayVec<VectorDiff<T>, 2>,
     ) -> Option<Self> {
         let res: Vec<_> = self.into_iter().flat_map(make_diffs).collect();
