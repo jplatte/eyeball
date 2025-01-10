@@ -17,7 +17,7 @@ use pin_project_lite::pin_project;
 
 pin_project! {
     /// A [`VectorDiff`] stream adapter that presents a limited view of the
-    /// underlying [`ObservableVector`]s items.
+    /// underlying [`ObservableVector`]s items. The view starts from index 0.
     ///
     /// For example, let `S` be a `Stream<Item = VectorDiff>`. The [`Vector`]
     /// represented by `S` can have any length, but one may want to virtually
@@ -188,7 +188,8 @@ where
                     return Poll::Ready(Some(diffs));
                 }
 
-                // If update_limit returned None, poll the limit stream again.
+                // If `update_limit` returned `None`, poll the limit stream
+                // again.
             }
 
             // Poll `VectorDiff`s from the `inner_stream`.
