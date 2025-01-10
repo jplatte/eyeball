@@ -7,7 +7,7 @@ use std::{
 };
 
 use super::{
-    VectorDiffContainer, VectorDiffContainerOps, VectorDiffContainerStreamArrayBuf,
+    ops::BUF_CAP, VectorDiffContainer, VectorDiffContainerOps, VectorDiffContainerStreamArrayBuf,
     VectorDiffContainerStreamElement, VectorObserver,
 };
 use eyeball_im::VectorDiff;
@@ -319,7 +319,7 @@ fn handle_diff<T: Clone>(
     limit: usize,
     prev_len: usize,
     buffered_vector: &Vector<T>,
-) -> ArrayVec<VectorDiff<T>, 2> {
+) -> ArrayVec<VectorDiff<T>, BUF_CAP> {
     // If the limit is zero, we have nothing to do.
     if limit == 0 {
         return ArrayVec::new();

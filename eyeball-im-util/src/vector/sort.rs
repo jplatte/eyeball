@@ -11,7 +11,7 @@ use pin_project_lite::pin_project;
 use smallvec::SmallVec;
 
 use super::{
-    VectorDiffContainer, VectorDiffContainerOps, VectorDiffContainerStreamElement,
+    ops::BUF_CAP, VectorDiffContainer, VectorDiffContainerOps, VectorDiffContainerStreamElement,
     VectorDiffContainerStreamVecBuf,
 };
 
@@ -320,7 +320,7 @@ fn handle_diff_and_update_buffered_vector<T, F>(
     diff: VectorDiff<T>,
     compare: F,
     buffered_vector: &mut Vector<(usize, T)>,
-) -> SmallVec<[VectorDiff<T>; 2]>
+) -> SmallVec<[VectorDiff<T>; BUF_CAP]>
 where
     T: Clone,
     F: Fn(&T, &T) -> Ordering,
