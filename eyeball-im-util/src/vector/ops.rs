@@ -55,7 +55,7 @@ impl<T> VectorDiffContainerOps<T> for VectorDiff<T> {
         buffer: &mut Self::LimitBuf,
         mut make_diffs: impl FnMut(VectorDiff<T>) -> ArrayVec<VectorDiff<T>, 2>,
     ) -> Option<Self> {
-        assert!(buffer.is_none(), "buffer must be None when calling push_into_buffer");
+        assert!(buffer.is_none(), "buffer must be None when calling push_into_limit_buf");
 
         let mut diffs = make_diffs(self);
 
@@ -77,7 +77,7 @@ impl<T> VectorDiffContainerOps<T> for VectorDiff<T> {
         buffer: &mut Self::SortBuf,
         mut make_diffs: impl FnMut(VectorDiff<T>) -> SmallVec<[VectorDiff<T>; 2]>,
     ) -> Option<Self> {
-        assert!(buffer.is_empty(), "buffer must be empty when calling `push_into_buffer`");
+        assert!(buffer.is_empty(), "buffer must be empty when calling `push_into_sort_buf`");
 
         let mut diffs = make_diffs(self);
 
