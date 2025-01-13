@@ -205,7 +205,9 @@ where
                 // Update the `buffered_vector`. It's a replica of the original observed
                 // `Vector`. We need to maintain it in order to be able to produce valid
                 // `VectorDiff`s when items are missing.
-                update_buffered_vector(&diff, self.buffered_vector);
+                diff.clone().apply(self.buffered_vector);
+
+                // Handle the `diff`.
                 handle_diff(diff, limit, prev_len, self.buffered_vector)
             });
 
@@ -284,34 +286,6 @@ impl Stream for EmptyLimitStream {
 
     fn poll_next(self: Pin<&mut Self>, _cx: &mut task::Context<'_>) -> Poll<Option<Self::Item>> {
         Poll::Ready(None)
-    }
-}
-
-fn update_buffered_vector<T: Clone>(diff: &VectorDiff<T>, buffered_vector: &mut Vector<T>) {
-    match diff {
-        VectorDiff::Append { values } => buffered_vector.append(values.clone()),
-        VectorDiff::Clear => buffered_vector.clear(),
-        VectorDiff::PushFront { value } => buffered_vector.push_front(value.clone()),
-        VectorDiff::PushBack { value } => buffered_vector.push_back(value.clone()),
-        VectorDiff::PopFront => {
-            buffered_vector.pop_front();
-        }
-        VectorDiff::PopBack => {
-            buffered_vector.pop_back();
-        }
-        VectorDiff::Insert { index, value } => {
-            buffered_vector.insert(*index, value.clone());
-        }
-        VectorDiff::Set { index, value } => {
-            buffered_vector.set(*index, value.clone());
-        }
-        VectorDiff::Remove { index } => {
-            buffered_vector.remove(*index);
-        }
-        VectorDiff::Truncate { length } => buffered_vector.truncate(*length),
-        VectorDiff::Reset { values } => {
-            *buffered_vector = values.clone();
-        }
     }
 }
 
