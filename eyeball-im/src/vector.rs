@@ -433,7 +433,7 @@ impl<T: Clone> VectorDiff<T> {
     pub fn apply(self, vec: &mut Vector<T>) {
         match self {
             VectorDiff::Append { values } => {
-                vec.extend(values);
+                vec.append(values);
             }
             VectorDiff::Clear => {
                 vec.clear();
