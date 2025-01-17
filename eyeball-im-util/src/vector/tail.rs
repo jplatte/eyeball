@@ -103,12 +103,12 @@ pin_project! {
         // The current limit.
         limit: usize,
 
-        // This adapter is not a basic filter: It can produce up to two items
+        // This adapter is not a basic filter: It can produce multiple items
         // per item of the underlying stream.
         //
         // Thus, if the item type is just `VectorDiff<_>` (non-bached, can't
-        // just add diffs to a poll_next result), we need a buffer to store the
-        // possible extra item in. For example if the vector is [10, 11, 12]
+        // just add diffs to a `poll_next` result), we need a buffer to store
+        // the possible extra item in. For example if the vector is [10, 11, 12]
         // with a limit of 2 on top: if an item is popped at the back then 12
         // is removed, but 10 has to be pushed front as it "enters" the "view".
         // That second `PushFront` diff is buffered here.
