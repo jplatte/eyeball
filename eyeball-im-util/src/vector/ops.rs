@@ -4,7 +4,7 @@ use smallvec::SmallVec;
 
 pub trait VectorDiffContainerOps<T>: Sized {
     type Family: VectorDiffContainerFamily;
-    type LimitBuf: Default;
+    type HeadBuf: Default;
     type SortBuf: Default;
 
     fn from_item(vector_diff: VectorDiff<T>) -> Self;
@@ -14,18 +14,18 @@ pub trait VectorDiffContainerOps<T>: Sized {
         f: impl FnMut(VectorDiff<T>) -> Option<VectorDiff<U>>,
     ) -> Option<VectorDiffContainerFamilyMember<Self::Family, U>>;
 
-    fn push_into_limit_buf(
+    fn push_into_head_buf(
         self,
-        buffer: &mut Self::LimitBuf,
-        make_diffs: impl FnMut(VectorDiff<T>) -> ArrayVec<VectorDiff<T>, 2>,
+        buffer: &mut Self::HeadBuf,
+        map_diffs: impl FnMut(VectorDiff<T>) -> ArrayVec<VectorDiff<T>, 2>,
     ) -> Option<Self>;
 
-    fn pop_from_limit_buf(buffer: &mut Self::LimitBuf) -> Option<Self>;
+    fn pop_from_head_buf(buffer: &mut Self::HeadBuf) -> Option<Self>;
 
     fn push_into_sort_buf(
         self,
         buffer: &mut Self::SortBuf,
-        make_diffs: impl FnMut(VectorDiff<T>) -> SmallVec<[VectorDiff<T>; 2]>,
+        map_diffs: impl FnMut(VectorDiff<T>) -> SmallVec<[VectorDiff<T>; 2]>,
     ) -> Option<Self>;
 
     fn pop_from_sort_buf(buffer: &mut Self::SortBuf) -> Option<Self>;
@@ -36,7 +36,7 @@ pub type VectorDiffContainerFamilyMember<F, U> = <F as VectorDiffContainerFamily
 
 impl<T> VectorDiffContainerOps<T> for VectorDiff<T> {
     type Family = VectorDiffFamily;
-    type LimitBuf = Option<VectorDiff<T>>;
+    type HeadBuf = Option<VectorDiff<T>>;
     type SortBuf = SmallVec<[VectorDiff<T>; 2]>;
 
     fn from_item(vector_diff: VectorDiff<T>) -> Self {
@@ -50,14 +50,14 @@ impl<T> VectorDiffContainerOps<T> for VectorDiff<T> {
         f(self)
     }
 
-    fn push_into_limit_buf(
+    fn push_into_head_buf(
         self,
-        buffer: &mut Self::LimitBuf,
-        mut make_diffs: impl FnMut(VectorDiff<T>) -> ArrayVec<VectorDiff<T>, 2>,
+        buffer: &mut Self::HeadBuf,
+        mut map_diffs: impl FnMut(VectorDiff<T>) -> ArrayVec<VectorDiff<T>, 2>,
     ) -> Option<Self> {
-        assert!(buffer.is_none(), "buffer must be None when calling push_into_limit_buf");
+        assert!(buffer.is_none(), "buffer must be None when calling push_into_head_buf");
 
-        let mut diffs = make_diffs(self);
+        let mut diffs = map_diffs(self);
 
         let last = diffs.pop();
         if let Some(first) = diffs.pop() {
@@ -68,18 +68,18 @@ impl<T> VectorDiffContainerOps<T> for VectorDiff<T> {
         }
     }
 
-    fn pop_from_limit_buf(buffer: &mut Self::LimitBuf) -> Option<Self> {
+    fn pop_from_head_buf(buffer: &mut Self::HeadBuf) -> Option<Self> {
         buffer.take()
     }
 
     fn push_into_sort_buf(
         self,
         buffer: &mut Self::SortBuf,
-        mut make_diffs: impl FnMut(VectorDiff<T>) -> SmallVec<[VectorDiff<T>; 2]>,
+        mut map_diffs: impl FnMut(VectorDiff<T>) -> SmallVec<[VectorDiff<T>; 2]>,
     ) -> Option<Self> {
         assert!(buffer.is_empty(), "buffer must be empty when calling `push_into_sort_buf`");
 
-        let mut diffs = make_diffs(self);
+        let mut diffs = map_diffs(self);
 
         match diffs.len() {
             0 => None,
@@ -102,7 +102,7 @@ impl<T> VectorDiffContainerOps<T> for VectorDiff<T> {
 
 impl<T> VectorDiffContainerOps<T> for Vec<VectorDiff<T>> {
     type Family = VecVectorDiffFamily;
-    type LimitBuf = ();
+    type HeadBuf = ();
     type SortBuf = ();
 
     fn from_item(vector_diff: VectorDiff<T>) -> Self {
@@ -122,12 +122,12 @@ impl<T> VectorDiffContainerOps<T> for Vec<VectorDiff<T>> {
         }
     }
 
-    fn push_into_limit_buf(
+    fn push_into_head_buf(
         self,
-        _buffer: &mut Self::LimitBuf,
-        make_diffs: impl FnMut(VectorDiff<T>) -> ArrayVec<VectorDiff<T>, 2>,
+        _buffer: &mut Self::HeadBuf,
+        map_diffs: impl FnMut(VectorDiff<T>) -> ArrayVec<VectorDiff<T>, 2>,
     ) -> Option<Self> {
-        let res: Vec<_> = self.into_iter().flat_map(make_diffs).collect();
+        let res: Vec<_> = self.into_iter().flat_map(map_diffs).collect();
 
         if res.is_empty() {
             None
@@ -136,16 +136,16 @@ impl<T> VectorDiffContainerOps<T> for Vec<VectorDiff<T>> {
         }
     }
 
-    fn pop_from_limit_buf(_: &mut Self::LimitBuf) -> Option<Self> {
+    fn pop_from_head_buf(_: &mut Self::HeadBuf) -> Option<Self> {
         None
     }
 
     fn push_into_sort_buf(
         self,
         _buffer: &mut (),
-        make_diffs: impl FnMut(VectorDiff<T>) -> SmallVec<[VectorDiff<T>; 2]>,
+        map_diffs: impl FnMut(VectorDiff<T>) -> SmallVec<[VectorDiff<T>; 2]>,
     ) -> Option<Self> {
-        let res: Vec<_> = self.into_iter().flat_map(make_diffs).collect();
+        let res: Vec<_> = self.into_iter().flat_map(map_diffs).collect();
 
         if res.is_empty() {
             None
@@ -154,7 +154,7 @@ impl<T> VectorDiffContainerOps<T> for Vec<VectorDiff<T>> {
         }
     }
 
-    fn pop_from_sort_buf(_: &mut Self::LimitBuf) -> Option<Self> {
+    fn pop_from_sort_buf(_: &mut Self::HeadBuf) -> Option<Self> {
         None
     }
 }

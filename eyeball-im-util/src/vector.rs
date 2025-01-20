@@ -1,7 +1,7 @@
 //! Utilities around [`ObservableVector`][eyeball_im::ObservableVector].
 
 mod filter;
-mod limit;
+mod head;
 mod ops;
 mod sort;
 mod traits;
@@ -12,7 +12,7 @@ use futures_core::Stream;
 use self::ops::{VectorDiffContainerFamilyMember, VectorDiffContainerOps};
 pub use self::{
     filter::{Filter, FilterMap},
-    limit::{EmptyLimitStream, Limit},
+    head::{EmptyLimitStream, Head},
     sort::{Sort, SortBy, SortByKey},
     traits::{
         BatchedVectorSubscriber, VectorDiffContainer, VectorObserver, VectorObserverExt,
@@ -41,9 +41,9 @@ type VectorDiffContainerStreamFamily<S> =
 type VectorDiffContainerDiff<S> = VectorDiff<VectorDiffContainerStreamElement<S>>;
 
 /// Type alias for extracting the buffer type from a stream of
-/// [`VectorDiffContainer`]s' `LimitBuf`.
-type VectorDiffContainerStreamLimitBuf<S> =
-    <<S as Stream>::Item as VectorDiffContainerOps<VectorDiffContainerStreamElement<S>>>::LimitBuf;
+/// [`VectorDiffContainer`]s' `HeadBuf`.
+type VectorDiffContainerStreamHeadBuf<S> =
+    <<S as Stream>::Item as VectorDiffContainerOps<VectorDiffContainerStreamElement<S>>>::HeadBuf;
 
 /// Type alias for extracting the buffer type from a stream of
 /// [`VectorDiffContainer`]s' `SortBuf`.
