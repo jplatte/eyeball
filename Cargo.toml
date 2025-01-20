@@ -12,11 +12,19 @@ keywords = ["async", "observable", "reactive"]
 assert_matches = "1.5.0"
 futures-core = "0.3.26"
 futures-util = { version = "0.3.26", default-features = false }
+imbl = "4.0.0"
 readlock = "0.1.5"
 stream_assert = "0.1.0"
 tokio = { version = "1.25.0", features = ["sync"] }
 tokio-util = "0.7.8"
 tracing = { version = "0.1.37", default-features = false, features = ["std"] }
+
+
+[patch.crates-io]
+# Needed to fix an incorrect bounds check in `imbl::Focus::narrow()`. 
+# Can be removed once a new version of imbl is released with this fix included.
+imbl = { git = "https://github.com/jneem/imbl", rev = "7c5f24099c62c9f8d5d949bb79725c91251b78fb" }
+
 
 [workspace.lints.rust]
 rust_2018_idioms = { level = "warn", priority = -1 }
