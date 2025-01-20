@@ -1,3 +1,8 @@
+# Unreleased
+
+- Rename `Limit` to `Head`, along with all the similar methods, like
+  `VectorObserverExt::limit` which becomes `VectorObserverExt::head` and so on.
+
 # 0.7.0
 
 - Remove `Send` and `Sync` constraints from some traits and associated types

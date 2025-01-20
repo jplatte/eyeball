@@ -12,7 +12,7 @@ use super::{
     ops::{
         VecVectorDiffFamily, VectorDiffContainerFamily, VectorDiffContainerOps, VectorDiffFamily,
     },
-    EmptyLimitStream, Filter, FilterMap, Limit, Sort, SortBy, SortByKey,
+    EmptyLimitStream, Filter, FilterMap, Head, Sort, SortBy, SortByKey,
 };
 
 /// Abstraction over stream items that the adapters in this module can deal
@@ -124,40 +124,40 @@ where
         FilterMap::new(items, stream, f)
     }
 
-    /// Limit the observed values to `limit`.
+    /// Limit the observed values to the first `limit` values.
     ///
-    /// See [`Limit`] for more details.
-    fn limit(self, limit: usize) -> (Vector<T>, Limit<Self::Stream, EmptyLimitStream>) {
+    /// See [`Head`] for more details.
+    fn head(self, limit: usize) -> (Vector<T>, Head<Self::Stream, EmptyLimitStream>) {
         let (items, stream) = self.into_parts();
-        Limit::new(items, stream, limit)
+        Head::new(items, stream, limit)
     }
 
-    /// Limit the observed values to a number of items determined by the given
-    /// stream.
+    /// Limit the first observed values to a number of values determined by the
+    /// given stream.
     ///
-    /// See [`Limit`] for more details.
-    fn dynamic_limit<L>(self, limit_stream: L) -> Limit<Self::Stream, L>
+    /// See [`Head`] for more details.
+    fn dynamic_head<L>(self, limit_stream: L) -> Head<Self::Stream, L>
     where
         L: Stream<Item = usize>,
     {
         let (items, stream) = self.into_parts();
-        Limit::dynamic(items, stream, limit_stream)
+        Head::dynamic(items, stream, limit_stream)
     }
 
-    /// Limit the observed values to `initial_limit` items initially, and update
-    /// the limit with the value from the given stream.
+    /// Limit the first observed values to `initial_limit` values initially, and
+    /// update the limit with the value from the given stream.
     ///
-    /// See [`Limit`] for more details.
-    fn dynamic_limit_with_initial_value<L>(
+    /// See [`Head`] for more details.
+    fn dynamic_head_with_initial_value<L>(
         self,
         initial_limit: usize,
         limit_stream: L,
-    ) -> (Vector<T>, Limit<Self::Stream, L>)
+    ) -> (Vector<T>, Head<Self::Stream, L>)
     where
         L: Stream<Item = usize>,
     {
         let (items, stream) = self.into_parts();
-        Limit::dynamic_with_initial_limit(items, stream, initial_limit, limit_stream)
+        Head::dynamic_with_initial_limit(items, stream, initial_limit, limit_stream)
     }
 
     /// Sort the observed values.

@@ -8,7 +8,7 @@ use std::{
 
 use super::{
     VectorDiffContainer, VectorDiffContainerOps, VectorDiffContainerStreamElement,
-    VectorDiffContainerStreamLimitBuf, VectorObserver,
+    VectorDiffContainerStreamHeadBuf, VectorObserver,
 };
 use eyeball_im::VectorDiff;
 use futures_core::Stream;
@@ -21,7 +21,7 @@ pin_project! {
     ///
     /// For example, let `S` be a `Stream<Item = VectorDiff>`. The [`Vector`]
     /// represented by `S` can have any length, but one may want to virtually
-    /// _limit_ this `Vector` to a certain size. Then this `Limit` adapter is
+    /// _limit_ this `Vector` to a certain size. Then this `Head` adapter is
     /// appropriate.
     ///
     /// An internal buffered vector is kept so that the adapter knows which
@@ -33,8 +33,8 @@ pin_project! {
     /// `Vector`.
     ///
     /// [`ObservableVector`]: eyeball_im::ObservableVector
-    #[project = LimitProj]
-    pub struct Limit<S, L>
+    #[project = HeadProj]
+    pub struct Head<S, L>
     where
         S: Stream,
         S::Item: VectorDiffContainer,
@@ -63,16 +63,16 @@ pin_project! {
         // with a limit of 2 on top: if an item is popped at the front then 10
         // is removed, but 12 has to be pushed back as it "enters" the "view".
         // That second `PushBack` diff is buffered here.
-        ready_values: VectorDiffContainerStreamLimitBuf<S>,
+        ready_values: VectorDiffContainerStreamHeadBuf<S>,
     }
 }
 
-impl<S> Limit<S, EmptyLimitStream>
+impl<S> Head<S, EmptyLimitStream>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
 {
-    /// Create a new [`Limit`] with the given (unlimited) initial values,
+    /// Create a new [`Head`] with the given (unlimited) initial values,
     /// stream of `VectorDiff` updates for those values, and a fixed limit.
     ///
     /// Returns the truncated initial values as well as a stream of updates that
@@ -86,20 +86,20 @@ where
     }
 }
 
-impl<S, L> Limit<S, L>
+impl<S, L> Head<S, L>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
     L: Stream<Item = usize>,
 {
-    /// Create a new [`Limit`] with the given (unlimited) initial values, stream
+    /// Create a new [`Head`] with the given (unlimited) initial values, stream
     /// of `VectorDiff` updates for those values, and a stream of limits.
     ///
     /// This is equivalent to `dynamic_with_initial_limit` where the
     /// `initial_limit` is 0, except that it doesn't return the limited
     /// vector as it would be empty anyways.
     ///
-    /// Note that the returned `Limit` won't produce anything until the first
+    /// Note that the returned `Head` won't produce anything until the first
     /// limit is produced by the limit stream.
     pub fn dynamic(
         initial_values: Vector<VectorDiffContainerStreamElement<S>>,
@@ -115,7 +115,7 @@ where
         }
     }
 
-    /// Create a new [`Limit`] with the given (unlimited) initial values, stream
+    /// Create a new [`Head`] with the given (unlimited) initial values, stream
     /// of `VectorDiff` updates for those values, and an initial limit as well
     /// as a stream of new limits.
     pub fn dynamic_with_initial_limit(
@@ -141,7 +141,7 @@ where
     }
 }
 
-impl<S, L> Stream for Limit<S, L>
+impl<S, L> Stream for Head<S, L>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
@@ -154,7 +154,7 @@ where
     }
 }
 
-impl<S, L> VectorObserver<VectorDiffContainerStreamElement<S>> for Limit<S, L>
+impl<S, L> VectorObserver<VectorDiffContainerStreamElement<S>> for Head<S, L>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
@@ -167,7 +167,7 @@ where
     }
 }
 
-impl<S, L> LimitProj<'_, S, L>
+impl<S, L> HeadProj<'_, S, L>
 where
     S: Stream,
     S::Item: VectorDiffContainer,
@@ -176,7 +176,7 @@ where
     fn poll_next(&mut self, cx: &mut task::Context<'_>) -> Poll<Option<S::Item>> {
         loop {
             // First off, if any values are ready, return them.
-            if let Some(value) = S::Item::pop_from_limit_buf(self.ready_values) {
+            if let Some(value) = S::Item::pop_from_head_buf(self.ready_values) {
                 return Poll::Ready(Some(value));
             }
 
@@ -198,7 +198,7 @@ where
             };
 
             // Consume and apply the diffs if possible.
-            let ready = diffs.push_into_limit_buf(self.ready_values, |diff| {
+            let ready = diffs.push_into_head_buf(self.ready_values, |diff| {
                 let limit = *self.limit;
                 let prev_len = self.buffered_vector.len();
 
