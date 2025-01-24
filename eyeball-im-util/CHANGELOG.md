@@ -1,7 +1,8 @@
-# Unreleased
+# 0.8.0
 
 - Rename `Limit` to `Head`, along with all the similar methods, like
   `VectorObserverExt::limit` which becomes `VectorObserverExt::head` and so on.
+- Upgrade `eyeball-im` dependency to 0.6
 
 # 0.7.0
 
