@@ -5,6 +5,8 @@ use std::{
     task::{Context, Poll, Waker},
 };
 
+use slab::Slab;
+
 #[derive(Debug)]
 pub struct ObservableState<T> {
     /// The wrapped value.
@@ -30,12 +32,12 @@ struct ObservableStateMetadata {
     /// locked for reading. This way, it is guaranteed that between a subscriber
     /// reading the value and adding a waker because the value hasn't changed
     /// yet, no updates to the value could have happened.
-    wakers: Vec<Waker>,
+    wakers: Slab<Waker>,
 }
 
 impl Default for ObservableStateMetadata {
     fn default() -> Self {
-        Self { version: 1, wakers: Vec::new() }
+        Self { version: 1, wakers: Slab::new() }
     }
 }
 
@@ -57,18 +59,29 @@ impl<T> ObservableState<T> {
     pub(crate) fn poll_update(
         &self,
         observed_version: &mut u64,
+        waker_key: &mut Option<usize>,
         cx: &Context<'_>,
     ) -> Poll<Option<()>> {
         let mut metadata = self.metadata.write().unwrap();
 
         if metadata.version == 0 {
+            *waker_key = None;
             Poll::Ready(None)
         } else if *observed_version < metadata.version {
+            *waker_key = None;
             *observed_version = metadata.version;
             Poll::Ready(Some(()))
         } else {
-            metadata.wakers.push(cx.waker().clone());
+            *waker_key = Some(metadata.wakers.insert(cx.waker().clone()));
             Poll::Pending
+        }
+    }
+
+    pub(crate) fn drop_waker(&self, observed_version: u64, waker_key: usize) {
+        let mut metadata = self.metadata.write().unwrap();
+        if metadata.version == observed_version {
+            let _res = metadata.wakers.try_remove(waker_key);
+            debug_assert!(_res.is_some());
         }
     }
 
@@ -116,13 +129,13 @@ impl<T> ObservableState<T> {
         let mut metadata = self.metadata.write().unwrap();
         metadata.version = 0;
         // Clear the backing buffer for the wakers, no new ones will be added.
-        wake(mem::take(&mut metadata.wakers));
+        wake(mem::take(&mut metadata.wakers).into_iter().map(|(_, val)| val));
     }
 
     fn incr_version_and_wake(&mut self) {
         let metadata = self.metadata.get_mut().unwrap();
         metadata.version += 1;
-        wake(metadata.wakers.drain(..));
+        wake(metadata.wakers.drain());
     }
 }
 
