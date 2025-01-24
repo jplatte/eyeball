@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use imbl::{vector, Vector};
 use stream_assert::{assert_closed, assert_next_eq, assert_pending};
 

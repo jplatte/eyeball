@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 macro_rules! test {
     (
         $(#[$post_attr:meta])*

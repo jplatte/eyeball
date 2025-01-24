@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 mod filter;
 mod filter_map;
 mod head;
