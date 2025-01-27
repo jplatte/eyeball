@@ -1,4 +1,4 @@
-//! This module defines a [`SharedObservable`] type that is clonable, requires
+//! This module defines a [`SharedObservable`] type that is cloneable, requires
 //! only `&` access to update its inner value but doesn't dereference to the
 //! inner value.
 //!
