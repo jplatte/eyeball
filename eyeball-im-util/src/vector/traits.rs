@@ -12,7 +12,7 @@ use super::{
     ops::{
         VecVectorDiffFamily, VectorDiffContainerFamily, VectorDiffContainerOps, VectorDiffFamily,
     },
-    EmptyLimitStream, Filter, FilterMap, Head, Sort, SortBy, SortByKey,
+    EmptyLimitStream, Filter, FilterMap, Head, Sort, SortBy, SortByKey, Tail,
 };
 
 /// Abstraction over stream items that the adapters in this module can deal
@@ -158,6 +158,42 @@ where
     {
         let (items, stream) = self.into_parts();
         Head::dynamic_with_initial_limit(items, stream, initial_limit, limit_stream)
+    }
+
+    /// Limit the observed values to the last `limit` values.
+    ///
+    /// See [`Tail`] for more details.
+    fn tail(self, limit: usize) -> (Vector<T>, Tail<Self::Stream, EmptyLimitStream>) {
+        let (items, stream) = self.into_parts();
+        Tail::new(items, stream, limit)
+    }
+
+    /// Limit the last observed values to a number of items determined by the
+    /// given stream.
+    ///
+    /// See [`Tail`] for more details.
+    fn dynamic_tail<L>(self, limit_stream: L) -> Tail<Self::Stream, L>
+    where
+        L: Stream<Item = usize>,
+    {
+        let (items, stream) = self.into_parts();
+        Tail::dynamic(items, stream, limit_stream)
+    }
+
+    /// Limit the last observed values to `initial_limit` items initially, and
+    /// update the limit with the value from the given stream.
+    ///
+    /// See [`Tail`] for more details.
+    fn dynamic_tail_with_initial_value<L>(
+        self,
+        initial_limit: usize,
+        limit_stream: L,
+    ) -> (Vector<T>, Tail<Self::Stream, L>)
+    where
+        L: Stream<Item = usize>,
+    {
+        let (items, stream) = self.into_parts();
+        Tail::dynamic_with_initial_limit(items, stream, initial_limit, limit_stream)
     }
 
     /// Sort the observed values.

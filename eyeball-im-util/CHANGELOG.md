@@ -1,5 +1,7 @@
 # 0.8.0
 
+- Add the `Tail` adapter
+- Improve the documentation of `Head` by adding an example
 - Rename `Limit` to `Head`, along with all the similar methods, like
   `VectorObserverExt::limit` which becomes `VectorObserverExt::head` and so on.
 - Upgrade `eyeball-im` dependency to 0.6

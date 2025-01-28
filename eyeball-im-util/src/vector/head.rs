@@ -17,7 +17,9 @@ use pin_project_lite::pin_project;
 
 pin_project! {
     /// A [`VectorDiff`] stream adapter that presents a limited view of the
-    /// underlying [`ObservableVector`]s items. The view starts from index 0.
+    /// underlying [`ObservableVector`]'s items. The view starts from index 0.
+    /// This is the opposite of [`Tail`](super::Tail), which starts from the
+    /// end.
     ///
     /// For example, let `S` be a `Stream<Item = VectorDiff>`. The [`Vector`]
     /// represented by `S` can have any length, but one may want to virtually
@@ -31,6 +33,50 @@ pin_project! {
     ///
     /// It's okay to have a limit larger than the length of the observed
     /// `Vector`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use eyeball_im::{ObservableVector, VectorDiff};
+    /// use eyeball_im_util::vector::VectorObserverExt;
+    /// use imbl::vector;
+    /// use stream_assert::{assert_closed, assert_next_eq, assert_pending};
+    ///
+    /// // Our vector.
+    /// let mut ob = ObservableVector::<char>::new();
+    /// let (values, mut sub) = ob.subscribe().head(3);
+    ///
+    /// assert!(values.is_empty());
+    /// assert_pending!(sub);
+    ///
+    /// // Append multiple values.
+    /// ob.append(vector!['a', 'b', 'c', 'd']);
+    /// // We get a `VectorDiff::Append` with the first 3 values!
+    /// assert_next_eq!(sub, VectorDiff::Append { values: vector!['a', 'b', 'c'] });
+    ///
+    /// // Let's recap what we have. `ob` is our `ObservableVector`,
+    /// // `sub` is the “limited view” of `ob`:
+    /// // | `ob`  | a b c d |
+    /// // | `sub` | a b c   |
+    ///
+    /// // Front push a value.
+    /// ob.push_front('e');
+    /// // We get three `VectorDiff`s!
+    /// assert_next_eq!(sub, VectorDiff::PopBack);
+    /// assert_next_eq!(sub, VectorDiff::PushFront { value: 'e' });
+    ///
+    /// // Let's recap what we have:
+    /// // | `ob`  | e a b c d |
+    /// // | `sub` | e a b     |
+    /// //           ^     ^
+    /// //           |     |
+    /// //           |     removed with `VectorDiff::PopBack`
+    /// //           added with `VectorDiff::PushFront`
+    ///
+    /// assert_pending!(sub);
+    /// drop(ob);
+    /// assert_closed!(sub);
+    /// ```
     ///
     /// [`ObservableVector`]: eyeball_im::ObservableVector
     #[project = HeadProj]
