@@ -3,6 +3,7 @@
 mod filter;
 mod head;
 mod ops;
+mod skip;
 mod sort;
 mod tail;
 mod traits;
@@ -14,6 +15,7 @@ use self::ops::{VectorDiffContainerFamilyMember, VectorDiffContainerOps};
 pub use self::{
     filter::{Filter, FilterMap},
     head::{EmptyLimitStream, Head},
+    skip::{EmptyCountStream, Skip},
     sort::{Sort, SortBy, SortByKey},
     tail::Tail,
     traits::{
@@ -51,6 +53,11 @@ type VectorDiffContainerStreamHeadBuf<S> =
 /// [`VectorDiffContainer`]s' `TailBuf`.
 type VectorDiffContainerStreamTailBuf<S> =
     <<S as Stream>::Item as VectorDiffContainerOps<VectorDiffContainerStreamElement<S>>>::TailBuf;
+
+/// Type alias for extracting the buffer type from a stream of
+/// [`VectorDiffContainer`]s' `SkipBuf`.
+type VectorDiffContainerStreamSkipBuf<S> =
+    <<S as Stream>::Item as VectorDiffContainerOps<VectorDiffContainerStreamElement<S>>>::SkipBuf;
 
 /// Type alias for extracting the buffer type from a stream of
 /// [`VectorDiffContainer`]s' `SortBuf`.

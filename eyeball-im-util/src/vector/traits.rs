@@ -12,7 +12,8 @@ use super::{
     ops::{
         VecVectorDiffFamily, VectorDiffContainerFamily, VectorDiffContainerOps, VectorDiffFamily,
     },
-    EmptyLimitStream, Filter, FilterMap, Head, Sort, SortBy, SortByKey, Tail,
+    EmptyCountStream, EmptyLimitStream, Filter, FilterMap, Head, Skip, Sort, SortBy, SortByKey,
+    Tail,
 };
 
 /// Abstraction over stream items that the adapters in this module can deal
@@ -194,6 +195,42 @@ where
     {
         let (items, stream) = self.into_parts();
         Tail::dynamic_with_initial_limit(items, stream, initial_limit, limit_stream)
+    }
+
+    /// Skip the first `count` observed values.
+    ///
+    /// See [`Skip`] for more details.
+    fn skip(self, count: usize) -> (Vector<T>, Skip<Self::Stream, EmptyCountStream>) {
+        let (items, stream) = self.into_parts();
+        Skip::new(items, stream, count)
+    }
+
+    /// Skip the first `count` observed values, where `count` is determined by
+    /// the given stream.
+    ///
+    /// See [`Skip`] for more details.
+    fn dynamic_skip<C>(self, count_stream: C) -> Skip<Self::Stream, C>
+    where
+        C: Stream<Item = usize>,
+    {
+        let (items, stream) = self.into_parts();
+        Skip::dynamic(items, stream, count_stream)
+    }
+
+    /// Skip the first `initial_count` observed values, and update the `count`
+    /// with the values from the given stream.
+    ///
+    /// See [`Skip`] for more details.
+    fn dynamic_skip_with_initial_count<C>(
+        self,
+        initial_count: usize,
+        count_stream: C,
+    ) -> (Vector<T>, Skip<Self::Stream, C>)
+    where
+        C: Stream<Item = usize>,
+    {
+        let (items, stream) = self.into_parts();
+        Skip::dynamic_with_initial_count(items, stream, initial_count, count_stream)
     }
 
     /// Sort the observed values.
