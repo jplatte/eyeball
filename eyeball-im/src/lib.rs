@@ -4,6 +4,8 @@
 //!
 //! - `tracing`: Emit [tracing] events when updates are sent out
 
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+
 mod reusable_box;
 mod vector;
 
