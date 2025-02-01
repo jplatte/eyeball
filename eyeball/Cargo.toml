@@ -33,6 +33,7 @@ tokio = { workspace = true, features = ["macros", "rt"] }
 
 [features]
 async-lock = ["dep:readlock-tokio", "dep:tokio", "dep:tokio-util"]
+tracing = ["dep:tracing"]
 
 __bench = ["dep:divan", "dep:tokio", "tokio?/rt-multi-thread"]
 
