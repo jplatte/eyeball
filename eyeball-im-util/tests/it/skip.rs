@@ -398,7 +398,7 @@ fn push_front() {
     {
         ob.push_front(12);
 
-        assert_next_eq!(sub, VectorDiff::PushFront { value: 10 })
+        assert_next_eq!(sub, VectorDiff::PushFront { value: 10 });
 
         // State of:
         //
@@ -410,7 +410,7 @@ fn push_front() {
     {
         ob.push_front(13);
 
-        assert_next_eq!(sub, VectorDiff::PushFront { value: 11 })
+        assert_next_eq!(sub, VectorDiff::PushFront { value: 11 });
 
         // State of:
         //
@@ -472,7 +472,7 @@ fn push_back() {
     {
         ob.push_back(12);
 
-        assert_next_eq!(sub, VectorDiff::PushBack { value: 12 })
+        assert_next_eq!(sub, VectorDiff::PushBack { value: 12 });
 
         // State of:
         //
@@ -484,7 +484,7 @@ fn push_back() {
     {
         ob.push_back(13);
 
-        assert_next_eq!(sub, VectorDiff::PushBack { value: 13 })
+        assert_next_eq!(sub, VectorDiff::PushBack { value: 13 });
 
         // State of:
         //
