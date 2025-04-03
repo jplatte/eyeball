@@ -1,3 +1,7 @@
+# unreleased
+
+- Upgrade `imbl` dependency to version 5
+
 # 0.6.1
 
 - Documentation improvements
