@@ -3,6 +3,7 @@
 //! Cargo features:
 //!
 //! - `tracing`: Emit [tracing] events when updates are sent out
+//! - `serde`: Enable the `Serialize` implementation for [`VectorDiff`]
 
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
