@@ -1,3 +1,7 @@
+# 0.8.0
+
+- Upgrade `eyeball-im` dependency to 0.7
+
 # 0.8.1
 
 - Add the `Tail` adapter
