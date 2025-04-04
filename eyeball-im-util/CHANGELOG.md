@@ -1,6 +1,7 @@
-# 0.8.0
+# 0.9.0
 
 - Upgrade `eyeball-im` dependency to 0.7
+- Add the `Skip` adapter
 
 # 0.8.1
 
