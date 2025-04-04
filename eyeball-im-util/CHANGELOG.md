@@ -1,9 +1,10 @@
-# 0.8.0
+# 0.9.0
 
 - Upgrade `eyeball-im` dependency to 0.7
 
 # 0.8.1
 
+- Add the `Skip` adapter
 - Add the `Tail` adapter
 - Improve the documentation of `Head` by adding an example
 
