@@ -189,7 +189,7 @@ where
     ) -> (Vector<VectorDiffContainerStreamElement<S>>, Self) {
         let buffered_vector = initial_values.clone();
 
-        let initial_values = initial_values.skeep(initial_count);
+        let initial_values = initial_values.skip(initial_count);
 
         let stream = Self {
             inner_stream,
@@ -309,7 +309,7 @@ where
             // First time `count` is initialized.
             None => {
                 return Some(vec![VectorDiff::Append {
-                    values: self.buffered_vector.clone().skeep(new_count),
+                    values: self.buffered_vector.clone().skip(new_count),
                 }])
             }
 
@@ -391,7 +391,7 @@ fn handle_diff<T: Clone>(
                 // Note: Do a `<` instead of `<=` to avoid calling `skip` with 0.
 
                 let values = if previous_length < count {
-                    values.skeep(count - previous_length)
+                    values.skip(count - previous_length)
                 } else {
                     values
                 };
@@ -497,7 +497,7 @@ fn handle_diff<T: Clone>(
         }
 
         VectorDiff::Reset { values } => {
-            res.push(VectorDiff::Reset { values: values.skeep(count) });
+            res.push(VectorDiff::Reset { values: values.skip(count) });
         }
     }
 
@@ -514,48 +514,5 @@ impl Stream for EmptyCountStream {
 
     fn poll_next(self: Pin<&mut Self>, _cx: &mut task::Context<'_>) -> Poll<Option<Self::Item>> {
         Poll::Ready(None)
-    }
-}
-
-trait Skeep {
-    fn skeep(self, count: usize) -> Self;
-}
-
-impl<T> Skeep for Vector<T>
-where
-    T: Clone,
-{
-    fn skeep(self, count: usize) -> Self {
-        match count {
-            // Skip 0 values, let's return all of them.
-            0 => self,
-
-            // Skip more values than `self` contains, let's return an empty `Vector`.
-            count if count >= self.len() => Vector::new(),
-
-            // Skip the first n values.
-            count => self.skip(count),
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Skeep;
-    use imbl::vector;
-
-    #[test]
-    fn test_skeep() {
-        // Count is 0.
-        assert_eq!(vector![1, 2, 3, 4].skeep(0), vector![1, 2, 3, 4]);
-
-        // Count is smaller than the values.
-        assert_eq!(vector![1, 2, 3, 4].skeep(2), vector![3, 4]);
-
-        // Count is equal to the number of values.
-        assert_eq!(vector![1, 2, 3, 4].skeep(4), vector![]);
-
-        // Count is larger than the number of values.
-        assert_eq!(vector![1, 2, 3, 4].skeep(6), vector![]);
     }
 }
