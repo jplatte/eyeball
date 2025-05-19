@@ -4,7 +4,7 @@ use imbl::vector;
 #[test]
 #[should_panic]
 fn capacity_overflow() {
-    let ob: ObservableVector<usize> = ObservableVector::with_capacity(usize::MAX / 2);
+    let _: ObservableVector<usize> = ObservableVector::with_capacity(usize::MAX / 2);
 }
 
 #[test]
