@@ -22,6 +22,7 @@ pub struct ObservableVectorTransaction<'o, T: Clone> {
 }
 
 impl<'o, T: Clone + 'static> ObservableVectorTransaction<'o, T> {
+    #[allow(missing_docs)]
     pub fn new(inner: &'o mut ObservableVector<T>) -> Self {
         let values = inner.values.clone();
         Self { inner, values, batch: Vec::new() }
