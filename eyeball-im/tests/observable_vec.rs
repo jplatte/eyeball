@@ -22,4 +22,3 @@ fn transaction_set_out_of_range() {
     let mut txn = ObservableVectorTransaction::new(&mut inner);
     txn.set(0, 1);
 }
-
