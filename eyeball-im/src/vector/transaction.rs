@@ -22,7 +22,8 @@ pub struct ObservableVectorTransaction<'o, T: Clone> {
 }
 
 impl<'o, T: Clone + 'static> ObservableVectorTransaction<'o, T> {
-    pub(super) fn new(inner: &'o mut ObservableVector<T>) -> Self {
+    #[allow(missing_docs)]
+    pub fn new(inner: &'o mut ObservableVector<T>) -> Self {
         let values = inner.values.clone();
         Self { inner, values, batch: Vec::new() }
     }
@@ -162,7 +163,7 @@ impl<'o, T: Clone + 'static> ObservableVectorTransaction<'o, T> {
     ///
     /// # Panics
     ///
-    /// Panics if `index > len`.
+    /// Panics if `index >= len`.
     #[track_caller]
     pub fn set(&mut self, index: usize, value: T) -> T {
         let len = self.values.len();

@@ -46,7 +46,7 @@ impl<T: Clone + 'static> ObservableVector<T> {
     ///
     /// # Panics
     ///
-    /// Panics if the capacity is `0`, or larger than `usize::MAX / 2`.
+    /// Panics if the capacity is `0`, or overflows.
     pub fn with_capacity(capacity: usize) -> Self {
         let (sender, _) = broadcast::channel(capacity);
         Self { values: Vector::new(), sender }
@@ -167,7 +167,7 @@ impl<T: Clone + 'static> ObservableVector<T> {
     ///
     /// # Panics
     ///
-    /// Panics if `index > len`.
+    /// Panics if `index >= len`.
     #[track_caller]
     pub fn set(&mut self, index: usize, value: T) -> T {
         let len = self.values.len();
