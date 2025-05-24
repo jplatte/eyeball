@@ -8,9 +8,9 @@ use eyeball_im::{ObservableVector, ObservableVectorEntry, VectorDiff};
 mod apply;
 mod batch;
 mod entry;
+mod panic;
 #[cfg(feature = "serde")]
 mod serde;
-mod panic;
 
 #[test]
 fn lag() {
