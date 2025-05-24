@@ -10,6 +10,7 @@ mod batch;
 mod entry;
 #[cfg(feature = "serde")]
 mod serde;
+mod panic;
 
 #[test]
 fn lag() {
