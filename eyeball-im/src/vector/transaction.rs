@@ -162,7 +162,7 @@ impl<'o, T: Clone + 'static> ObservableVectorTransaction<'o, T> {
     ///
     /// # Panics
     ///
-    /// Panics if `index > len`.
+    /// Panics if `index >= len`.
     #[track_caller]
     pub fn set(&mut self, index: usize, value: T) -> T {
         let len = self.values.len();
