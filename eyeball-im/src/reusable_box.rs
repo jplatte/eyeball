@@ -72,7 +72,7 @@ impl<'a, T> ReusableBoxFuture<'a, T> {
     }
 
     /// Get a pinned reference to the underlying future.
-    pub(crate) fn get_pin(&mut self) -> Pin<&mut (dyn Future<Output = T>)> {
+    pub(crate) fn get_pin(&mut self) -> Pin<&mut dyn Future<Output = T>> {
         self.boxed.as_mut()
     }
 

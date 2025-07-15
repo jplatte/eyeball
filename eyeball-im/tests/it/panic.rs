@@ -1,4 +1,4 @@
-use eyeball_im::{ObservableVector, ObservableVectorTransaction};
+use eyeball_im::ObservableVector;
 use imbl::vector;
 
 #[test]
