@@ -624,16 +624,23 @@ where
                 }
             }
         }
-        VectorDiff::Set { index: new_unsorted_index, value: new_value } => {
-            // We need to _update_ the value to `new_value`, and to _move_ it (since it is a
-            // new value, we need to sort it).
-            //
-            // Find the `old_index` and the `new_index`, respectively representing the
-            // _from_ and _to_ positions of the value to move.
+        VectorDiff::Set { index: unsorted_index, value: new_value } => {
+            // A `Set` must be treated as a `Remove` + `Insert` with an optimisation to
+            // simplify the generated diffs.
+            // Note that the unsorted indexes don't need to be updated.
+
+            let last_index = buffered_vector.len() - 1;
+
+            // Find the `old_index`.
             let old_index = buffered_vector
                 .iter()
-                .position(|(unsorted_index, _)| *unsorted_index == new_unsorted_index)
+                .position(|(unsorted_index_candidate, _)| *unsorted_index_candidate == unsorted_index)
                 .expect("`buffered_vector` must contain an item with an unsorted index of `new_unsorted_index`");
+
+            // Remove the old value, so that `new_value` is not compared to the old value.
+            // This is necessary if the two values are shallow clones of each others.
+            buffered_vector.remove(old_index);
+            // `result` is updated later, in the next `match` block, to optimise the diffs.
 
             let new_index =
                 match buffered_vector.binary_search_by(|(_, value)| compare(value, &new_value)) {
@@ -641,48 +648,30 @@ where
                     Err(index) => index,
                 };
 
-            match old_index.cmp(&new_index) {
-                // `old_index` is before `new_index`.
-                // Remove value at `old_index`, and insert the new value at `new_index - 1`: we need
-                // to subtract 1 because `old_index` has been removed before `new_insert`, which
-                // has shifted the indices.
-                //
-                // SAFETY: `new_index - 1` won't underflow because `new_index` is necessarily
-                // greater than `old_index` here. `old_index` cannot be lower than 0, so
-                // `new_index` cannot be lower than 1, hence `new_index - 1` cannot be lower
-                // than 0.
-                Ordering::Less => {
-                    let new_index = new_index - 1;
-                    let new_unsorted_index_with_value = (new_unsorted_index, new_value.clone());
+            // Insert the new value at the correct position.
+            buffered_vector.insert(new_index, (unsorted_index, new_value.clone()));
 
-                    // If `old_index == new_index`, we are clearly updating the same index.
-                    // Then, let's emit a `VectorDiff::Set`.
-                    if old_index == new_index {
-                        buffered_vector.set(old_index, new_unsorted_index_with_value);
+            // We are removing and inserting at the same position. We can emit a
+            // `VectorDiff::Set` instead of one `VectorDiff::Remove` followed by a
+            // `VectorDiff::Insert`.
+            if old_index == new_index {
+                result.push(VectorDiff::Set { index: new_index, value: new_value });
+            } else {
+                result.push(VectorDiff::Remove { index: old_index });
 
-                        result.push(VectorDiff::Set { index: old_index, value: new_value });
-                    } else {
-                        buffered_vector.remove(old_index);
-                        buffered_vector.insert(new_index, new_unsorted_index_with_value);
-
-                        result.push(VectorDiff::Remove { index: old_index });
-                        result.push(VectorDiff::Insert { index: new_index, value: new_value });
+                match new_index {
+                    // At the beginning? Let's emit a `VectorDiff::PopFront`.
+                    0 => {
+                        result.push(VectorDiff::PushFront { value: new_value });
                     }
-                }
-                // `old_index` is the same as `new_index`.
-                Ordering::Equal => {
-                    buffered_vector.set(new_index, (new_unsorted_index, new_value.clone()));
-                    result.push(VectorDiff::Set { index: new_index, value: new_value });
-                }
-                // `old_index` is after `new_index`.
-                // Remove value at `old_index`, and insert the new value at `new_index`. No shifting
-                // here.
-                Ordering::Greater => {
-                    buffered_vector.remove(old_index);
-                    buffered_vector.insert(new_index, (new_unsorted_index, new_value.clone()));
-
-                    result.push(VectorDiff::Remove { index: old_index });
-                    result.push(VectorDiff::Insert { index: new_index, value: new_value });
+                    // At the end? Let's emit a `VectorDiff::PopBack`.
+                    index if index == last_index => {
+                        result.push(VectorDiff::PushBack { value: new_value });
+                    }
+                    // Somewhere in the middle? Let's emit a `VectorDiff::Insert`.
+                    index => {
+                        result.push(VectorDiff::Insert { index, value: new_value });
+                    }
                 }
             }
         }

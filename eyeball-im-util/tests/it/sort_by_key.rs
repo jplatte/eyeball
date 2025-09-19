@@ -337,7 +337,7 @@ fn set() {
     // Another value, that is moved to the left.
     ob.set(0, 'a');
     assert_next_eq!(sub, VectorDiff::Remove { index: 1 });
-    assert_next_eq!(sub, VectorDiff::Insert { index: 0, value: 'a' });
+    assert_next_eq!(sub, VectorDiff::PushFront { value: 'a' });
 
     // Another value, that is moved to the right.
     ob.set(0, 'f');
@@ -347,7 +347,7 @@ fn set() {
     // Another value, that is moved to the right-most position.
     ob.set(0, 'h');
     assert_next_eq!(sub, VectorDiff::Remove { index: 2 });
-    assert_next_eq!(sub, VectorDiff::Insert { index: 3, value: 'h' });
+    assert_next_eq!(sub, VectorDiff::PushBack { value: 'h' });
 
     // Same operation, at another index, just for fun.
     ob.set(2, 'f');
