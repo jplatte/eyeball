@@ -1,7 +1,7 @@
 use eyeball_im::{ObservableVector, VectorDiff};
 use eyeball_im_util::vector::VectorObserverExt;
 use imbl::vector;
-use stream_assert::{assert_closed, assert_next_eq, assert_pending};
+use stream_assert::{assert_closed, assert_next_eq, assert_next_matches, assert_pending};
 
 #[test]
 fn new() {
@@ -422,6 +422,46 @@ fn reset() {
 
     // Items in the vector have been inserted and are not sorted.
     assert_eq!(*ob, vector!['c', 'd', 'a', 'b', 'f']);
+
+    drop(ob);
+    assert_closed!(sub);
+}
+
+#[test]
+fn bug80() {
+    use std::{
+        cmp::Ordering,
+        sync::{Arc, Mutex},
+    };
+
+    #[derive(Clone, Debug)]
+    struct T {
+        inner: Arc<Mutex<usize>>,
+    }
+
+    fn cmp(left: &T, right: &T) -> Ordering {
+        let left = left.inner.lock().unwrap();
+        let right = right.inner.lock().unwrap();
+
+        left.cmp(&*right)
+    }
+
+    let mut ob = ObservableVector::<T>::new();
+    let (values, mut sub) = ob.subscribe().sort_by(cmp);
+
+    assert!(values.is_empty());
+    assert_pending!(sub);
+
+    let t1 = T { inner: Arc::new(Mutex::new(42)) };
+    let t2 = t1.clone();
+
+    ob.push_back(t1);
+    assert_next_matches!(sub, VectorDiff::PushFront { .. });
+
+    *t2.inner.lock().unwrap() = 43;
+
+    ob.set(0, t2);
+    assert_next_matches!(sub, VectorDiff::Set { .. });
 
     drop(ob);
     assert_closed!(sub);
