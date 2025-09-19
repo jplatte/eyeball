@@ -1,5 +1,7 @@
 # unreleased
 
+# 0.8.0
+
 - Upgrade `imbl` dependency to version 6
 
 # 0.7.0
