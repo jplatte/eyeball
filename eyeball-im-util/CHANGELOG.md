@@ -1,3 +1,7 @@
+# 0.9.1
+
+- Fix an infinite loop in the `SortBy` adapter
+
 # 0.9.0
 
 - Upgrade `eyeball-im` dependency to 0.7
